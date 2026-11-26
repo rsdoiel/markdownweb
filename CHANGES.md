@@ -1,7 +1,7 @@
 
 # Change log
 
-## Unreleased
+## v0.0.4, 2026-11-26
 
 - `toc.Finder.Pages` and `PagesLocal` (markdownweb DR-0003): every page a table of contents names, flattened as BonBon does (each outline with a url except includes, in document order, a page before the outlines under it), includes read in place. Returns a `Listing` of `Page`s (address, title, the outline it came from, include depth, `Group`, and `Path` for a local site) with what was `Skipped` and whether the list is `Complete`. `Limits`: include depth (default 1), pages (10,000), files (50), bytes (32 MiB), and named extra hosts; never any host. Loops are skipped and reported, a diamond is read once, a page is listed once whatever form its address takes.
 - `toc.Doc.AllPages` and `Entry.Group`: the same flatten at the document level. `Entries` is unchanged.

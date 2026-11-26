@@ -14,7 +14,7 @@ maintainer:
     id: https://orcid.org/0000-0003-0900-6903
 
 repository_code: https://github.com/rsdoiel/markdownweb
-version: 0.0.3
+version: 0.0.4
 license_url: https://www.gnu.org/licenses/agpl-3.0.txt
 
 programming_language:
@@ -36,12 +36,12 @@ date_released: 2026-11-26
 About this software
 ===================
 
-## markdownweb 0.0.3
+## markdownweb 0.0.4
 
-- fetch: new package, a polite HTTP client: pause per host, named User-Agent, bounded redirects, body size and waits, Retry-After, and opt-in robots.txt with Crawl-delay (github.com/temoto/robotstxt); Get reads a body, Open returns the response (markdownweb DR-0002)
-- page: Fetch, FetchOther and FetchReader go through a shared fetcher; page.Fetcher and page.SetFetcher let a crawler install its own. The default sends User-Agent markdownweb/VERSION (it was Go's), keeps the 30 s timeout and ten redirects, and neither pauses nor reads robots.txt
-- page: ErrData and ErrUnavailable are now fetch.ErrData and fetch.ErrUnavailable; new ErrForbidden
-- antennaApp harvests through fetch
+- toc: Finder.Pages and PagesLocal list every page a table of contents names, flattened as BonBon does, includes read in place, within limits on depth, pages, files, bytes and hosts; loops skipped and reported (markdownweb DR-0003). Doc.AllPages and Entry.Group do the same at the document level
+- toc: BEHAVIOUR CHANGE, Neighbours and NeighboursByPath follow BonBon's rule: one flat list, previous the line above, next the line below, the ends wrap, no calendar reversal, a page with outlines under it is a stop, an included site is a list of its own (markdownweb DR-0004). Matches BonBon 0.6.57 on 220 of 220 pages of rsdoiel.github.io. Entries keeps its leaves-only list
+- toc: new Doc.Stops, StopsOf, StopsByPath, Doc.NeighboursOf, Result.Before and Result.After, ErrNoOutline and the Skip reasons; LookupLocal passes over a neighbour with no file
+- toc: NewFinderWith(*fetch.Fetcher); the Finder reads outlines and bonbon.json through fetch, so it sends the program's User-Agent and honours its pause and robots.txt settings
 
 ## Authors
 
