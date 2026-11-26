@@ -88,10 +88,10 @@ func candidates(page string) []string {
 		return nil
 	}
 	base := u.Scheme + "://" + u.Host
-	out := []string{base + "/.well-known/toc.opml"}
+	out := []string{base + "/" + FileName}
 	dir := path.Dir(u.Path)
 	for dir != "/" && dir != "." && dir != "" && len(out) < maxProbes {
-		out = append(out, base+strings.TrimRight(dir, "/")+"/.well-known/toc.opml")
+		out = append(out, base+strings.TrimRight(dir, "/")+"/"+FileName)
 		dir = path.Dir(dir)
 	}
 	return out

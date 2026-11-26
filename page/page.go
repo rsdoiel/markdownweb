@@ -226,7 +226,7 @@ func Fetch(ctx context.Context, rawurl string) (*Page, error) {
 	// and the news is on the page the HTML declares.
 	var nm *notMarkdown
 	if errors.As(err, &nm) && len(nm.head) > 0 {
-		alt := declaredAlternate(nm.base, nm.head)
+		alt := DeclaredAlternate(nm.base, nm.head)
 		log.Event("fetch.alternate", "base", nm.base, "head_bytes", len(nm.head), "declared", alt)
 		if alt != "" && alt != rawurl {
 			if p, err2 := fetchOne(ctx, alt, "alternate"); err2 == nil {
@@ -413,7 +413,7 @@ func contentLocation(resp *http.Response) string {
 	return abs.String()
 }
 
-/** declaredAlternate returns the address of the Markdown page that an HTML
+/** DeclaredAlternate returns the address of the Markdown page that an HTML
  * page declares in its head, as <link rel="alternate" type="text/markdown"
  * href="...">, resolved against the page's own address (antennaApp DR-0008
  * writes one on every collection page). rel may hold several words and type
@@ -429,9 +429,9 @@ func contentLocation(resp *http.Response) string {
  *   string — the absolute address, or "" when there is no usable declaration
  *
  * Example:
- *   alt := declaredAlternate("https://x.org/food.html", head) // "https://x.org/food_items.md"
+ *   alt := DeclaredAlternate("https://x.org/food.html", head) // "https://x.org/food_items.md"
  */
-func declaredAlternate(base string, head []byte) string {
+func DeclaredAlternate(base string, head []byte) string {
 	b, err := url.Parse(base)
 	if err != nil {
 		return ""
@@ -470,7 +470,7 @@ func declaredAlternate(base string, head []byte) string {
 					}
 				}
 				// "alternate stylesheet" is an alternate style, not an alternate page.
-				if !hasWord(rel, "alternate") || hasWord(rel, "stylesheet") || href == "" {
+				if !hasWord(rel, "alternate") || hasWord(rel, "stylesheet") || strings.TrimSpace(href) == "" {
 					continue
 				}
 				if mt, _, err := mime.ParseMediaType(typ); err != nil || mt != "text/markdown" {

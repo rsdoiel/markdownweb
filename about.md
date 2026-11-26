@@ -14,7 +14,7 @@ maintainer:
     id: https://orcid.org/0000-0003-0900-6903
 
 repository_code: https://github.com/rsdoiel/markdownweb
-version: 0.0.1
+version: 0.0.2
 license_url: https://www.gnu.org/licenses/agpl-3.0.txt
 
 programming_language:
@@ -34,15 +34,11 @@ date_released: 2026-11-26
 About this software
 ===================
 
-## markdownweb 0.0.1
+## markdownweb 0.0.2
 
-- first release, extracted from cmarkbrowser's internal/ with no change of behaviour
-- page: Fetch (BonBon's Accept, the declared alternate link, the .md sibling, Content-Location), FetchReader, FetchOther, Classify, ReadFile
-- toc: Parse of .well-known/toc.opml through rsdoiel/opml, Doc.Neighbours, Finder (which toc lists a page, includes followed, with limits), LookupLocal, Mirror (urlMirrorOf)
-- local: a site on disk, links confined to its root
-- reader: HTML to a Markdown reader view
-- debuglog: a nil-safe JSON-lines tracer carried in the context
-- requires github.com/rsdoiel/frontmatter, github.com/rsdoiel/opml and golang.org/x/net; no Charm, SQLite or cgo
+- page: PrefersMarkdown (an Accept header asks for Markdown), MarkdownPath (a file path's Markdown copy), DeclaredAlternate (now exported); shared with antennaApp
+- page: a blank href in a declared alternate link is ignored (it resolved to the page itself)
+- toc: FileName, the .well-known/toc.opml path, used by the local and remote finders
 
 ## Authors
 

@@ -41,9 +41,9 @@ func (f *Finder) LookupLocal(ctx context.Context, root, pagePath string) Result 
 		return Result{}
 	}
 	rel := filepath.ToSlash(relPage)
-	cands := []string{filepath.Join(root, ".well-known", "toc.opml")}
+	cands := []string{filepath.Join(root, filepath.FromSlash(FileName))}
 	for dir := filepath.Dir(pagePath); dir != root && len(cands) < maxProbes && strings.HasPrefix(dir, root); dir = filepath.Dir(dir) {
-		cands = append(cands, filepath.Join(dir, ".well-known", "toc.opml"))
+		cands = append(cands, filepath.Join(dir, filepath.FromSlash(FileName)))
 	}
 	var res Result
 	for _, c := range cands {
