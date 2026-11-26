@@ -3,7 +3,6 @@ package toc
 import (
 	"context"
 	"encoding/json"
-	"io"
 	"net/http"
 	"net/url"
 	"strings"
@@ -155,26 +154,16 @@ func (f *Finder) mirrorOf(ctx context.Context, address string) string {
 		f.mu.Unlock()
 		log.Event("mirror.fetch", "url", address, "status", status, "mirror_of", result, "ms", time.Since(start), "err", err)
 	}()
-	req, e := http.NewRequestWithContext(ctx, http.MethodGet, address, nil)
+	res, e := f.fx().Get(ctx, address, "application/json")
 	if e != nil {
 		err = e
 		return ""
 	}
-	resp, e := f.client.Do(req)
-	if e != nil {
-		err = e
+	status = res.Status
+	if status != http.StatusOK || len(res.Body) > maxSettings {
 		return ""
 	}
-	defer resp.Body.Close()
-	status = resp.StatusCode
-	if status != http.StatusOK {
-		return ""
-	}
-	body, e := io.ReadAll(io.LimitReader(resp.Body, maxSettings))
-	if e != nil {
-		err = e
-		return ""
-	}
+	body := res.Body
 	var settings map[string]any
 	if err = json.Unmarshal(body, &settings); err != nil {
 		return ""

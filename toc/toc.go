@@ -4,29 +4,36 @@
 // (its DR-0013); Dave Winer's sites publish their own, so the parser reads
 // what both write, including the ISO-8859-1 that Dave's declares.
 //
-// The rule for "before" and "after" is antenna's (DR-0013 5), which agrees with
-// Dave Winer's explicit urlPrev and urlNext:
+// The rule for "before" and "after" is BonBon's (getTocNeighbors, BonBon
+// 0.6.57; markdownweb DR-0004), so a reader built on this package and BonBon
+// give the same arrows on a page that names none of its own:
 //
-//   - Only outlines that are pages count: a url and no outlines under them. An
-//     outline that has both (a month page with its days under it) is an index,
-//     not a step in the sequence; an include outline is not a page.
-//   - A group with no type and no url (antenna's Pages, Posts) is a list of its
-//     own: arrows stop at its ends. Outlines of another kind (calendarYear and
-//     the like, as in Dave's file) belong to the list around them.
-//   - A list with calendar outlines in it is newest first, unless the numbers
-//     in their name attributes run upward (antenna writes oldest first). Newest
-//     first, the previous page is the next line down (the older one) and the
-//     next page is the line above. In any other list the previous page is the
-//     line above.
+//   - The outline is one flat list: every outline with a url except includes,
+//     in document order, a page before the outlines under it. A month page
+//     with its days under it is a stop, and its first day follows it. An
+//     include is read in place (Splice).
+//   - Previous is the line above, next the line below. The ends wrap: the
+//     first page's previous is the last. Nothing is reordered, whatever the
+//     calendar outlines say, and groups do not stop the arrows.
+//   - A page listed more than once is one page; its neighbours are the nearest
+//     different pages above its first line and below its last.
+//   - An included site is a list of its own: a page whose address is under the
+//     folder of a top-level include (its url up to "/.well-known/") is read in
+//     that include's pages alone and wraps inside them; a page outside every
+//     such folder is read in the whole list, the included pages in place.
+//     BonBon's getSiteToc.
+//   - A page whose front matter names urlPrev and urlNext keeps those; that is
+//     the caller's, as BonBon's. Whether a neighbour exists is asked by BonBon
+//     with a request per candidate; Stops gives the candidates in that order.
 //
-// What BonBon itself does with the lines of an outline, for its own arrows, is
-// not documented and could not be tested.
+// The older leaves-only rule with groups and calendar reversal, which
+// antennaApp DR-0013 wrote antenna's own arrows by, is not used here; Entries
+// keeps its leaves-only list for callers that want it.
 package toc
 
 import (
 	"fmt"
 	"net/url"
-	"strconv"
 	"strings"
 
 	"github.com/rsdoiel/opml"
@@ -37,19 +44,23 @@ import (
  * Fields:
  *   Text (string) — the outline's text
  *   URL (string) — its address, absolute
+ *   Group (bool) — set by AllPages for a page that has outlines under it (a
+ *     month page with its days); always false in what Entries returns
  *
  * Example:
  *   for _, e := range doc.Entries() { fmt.Println(e.Text, e.URL) }
  */
 type Entry struct {
-	Text string
-	URL  string // absolute
+	Text  string
+	URL   string // absolute
+	Group bool   // AllPages only: the outline has outlines under it
 }
 
 type node struct {
 	text, typ, name, url string // url is absolute, "" when none
 	include              bool   // type="include": url is another outline, not a page
 	children             []*node
+	folder               string // a spliced top-level include: the folder its site is published in (see siteFolder)
 }
 
 /** Doc is a parsed table of contents. Make one with Parse.
@@ -109,77 +120,10 @@ func Parse(src []byte, base string) (*Doc, error) {
 	return &Doc{root: &node{children: build(top)}}, nil
 }
 
-// leaf is a page of the outline with where it sits.
-type leaf struct {
-	Entry
-	scope   *node // the list it belongs to
-	reverse bool  // newest first
-	key     string
-}
-
-func isCalendar(typ string) bool {
-	switch strings.ToLower(typ) {
-	case "calendaryear", "calendarmonth", "calendarday":
-		return true
-	}
-	return false
-}
-
-// calendarOrder says which way the calendar outlines around c run, from the
-// numbers in the name attributes of c's siblings of the same type: -1 when they
-// rise (2025 then 2026: oldest first, as antenna writes since BonBon reads the
-// lines downward, antennaApp DR-0013 amendment), +1 when they fall (Dave
-// Winer's newest first), 0 when there are not two different numbers to compare.
-func calendarOrder(parent, c *node) int {
-	prev := -1
-	for _, sib := range parent.children {
-		if sib.typ != c.typ {
-			continue
-		}
-		v, err := strconv.Atoi(strings.TrimSpace(sib.name))
-		if err != nil {
-			continue
-		}
-		if prev >= 0 && v != prev {
-			if v < prev {
-				return 1
-			}
-			return -1
-		}
-		prev = v
-	}
-	return 0
-}
-
-// leaves lists the pages of the outline in document order.
-func (d *Doc) leaves() []leaf {
-	var out []leaf
-	// dir is the order a level of calendar outlines settled on, which the levels
-	// below it that cannot tell for themselves (one month in a year) inherit.
-	var walk func(n, scope *node, reverse bool, dir int)
-	walk = func(n, scope *node, reverse bool, dir int) {
-		for _, c := range n.children {
-			childScope, childReverse, childDir := scope, reverse, dir
-			if c.typ == "" && c.url == "" && !c.include && len(c.children) > 0 {
-				childScope, childReverse, childDir = c, false, 0 // a plain group is a list of its own
-			}
-			if isCalendar(c.typ) {
-				if d := calendarOrder(n, c); d != 0 {
-					childDir = d
-				}
-				childReverse = childDir != -1 // undecided: Dave's newest first
-			}
-			if c.url != "" && len(c.children) == 0 && !c.include {
-				out = append(out, leaf{Entry: Entry{Text: c.text, URL: c.url}, scope: childScope, reverse: childReverse, key: Key(c.url)})
-			}
-			walk(c, childScope, childReverse, childDir)
-		}
-	}
-	walk(d.root, d.root, false, 0)
-	return out
-}
-
-/** Entries returns the pages the outline lists, in document order.
+/** Entries returns the pages the outline lists that have nothing under them,
+ * in document order. This is the older, leaves-only question and is not
+ * BonBon's list: a page with outlines under it (a month page) is left out. Use
+ * AllPages for BonBon's flatten; Neighbours no longer depends on Entries.
  *
  * Returns:
  *   []Entry — the pages, none for an empty outline
@@ -189,10 +133,78 @@ func (d *Doc) leaves() []leaf {
  */
 func (d *Doc) Entries() []Entry {
 	var out []Entry
-	for _, l := range d.leaves() {
-		out = append(out, l.Entry)
+	var walk func(ns []*node)
+	walk = func(ns []*node) {
+		for _, n := range ns {
+			if n.url != "" && len(n.children) == 0 && !n.include {
+				out = append(out, Entry{Text: n.text, URL: n.url})
+			}
+			walk(n.children)
+		}
 	}
+	walk(d.root.children)
 	return out
+}
+
+/** AllPages returns every outline that names a page, in document order, by
+ * BonBon's rule for flattening an outline (and opml's Flatten): every outline
+ * with a url except includes, a page before the outlines under it, no
+ * reordering. Unlike Entries it keeps a page that has outlines under it, and
+ * marks it Group. Entries is left as it is; Neighbours depends on it.
+ *
+ * Returns:
+ *   []Entry — the pages, none for an empty outline
+ *
+ * Example:
+ *   for _, e := range doc.AllPages() { if !e.Group { fmt.Println(e.URL) } }
+ */
+func (d *Doc) AllPages() []Entry {
+	return pagesOf(d.root.children)
+}
+
+// pagesOf flattens outlines as AllPages does.
+func pagesOf(ns []*node) []Entry {
+	var out []Entry
+	var walk func(ns []*node)
+	walk = func(ns []*node) {
+		for _, n := range ns {
+			if n.url != "" && !n.include {
+				out = append(out, Entry{Text: n.text, URL: n.url, Group: len(n.children) > 0})
+			}
+			walk(n.children)
+		}
+	}
+	walk(ns)
+	return out
+}
+
+// siteFolder is the folder an included outline describes: the include's
+// address up to and including "/.well-known/"'s slash, "" when it has none
+// (BonBon's getSiteToc: such an include does not make a site of its own).
+func siteFolder(includeURL string) string {
+	i := strings.LastIndex(includeURL, "/.well-known/")
+	if i < 0 {
+		return ""
+	}
+	return includeURL[:i+1]
+}
+
+// linesFor is the list a page at address is read in. BonBon (getSiteToc): a
+// page whose address is under the folder of a top-level include that Splice
+// filled in is in that site's list alone, so the arrows wrap inside it; the
+// last such include wins. Any other page is in the whole outline's list, the
+// included sites in place.
+func (d *Doc) linesFor(address string) []Entry {
+	var site *node
+	for _, c := range d.root.children {
+		if c.folder != "" && strings.HasPrefix(address, c.folder) {
+			site = c
+		}
+	}
+	if site != nil {
+		return pagesOf(site.children)
+	}
+	return d.AllPages()
 }
 
 /** Includes returns the addresses of the include outlines, which are other
@@ -236,6 +248,9 @@ func (d *Doc) Splice(includeURL string, child *Doc) {
 		for _, c := range n.children {
 			if c.include && c.url == includeURL {
 				c.children = append([]*node(nil), child.root.children...)
+				if n == d.root {
+					c.folder = siteFolder(c.url)
+				}
 				c.include, c.url, c.typ = false, "", ""
 				continue
 			}
@@ -279,9 +294,14 @@ func Key(address string) string {
 	return k
 }
 
-/** Neighbours returns the page before and the page after a page in the
- * outline, by the rule in the package comment. An empty string means there is
- * none: the page is first or last in its list.
+/** Neighbours returns the page before and the page after a page, by
+ * BonBon's rule (markdownweb DR-0004): the outline is one flat list (AllPages),
+ * previous is the line above, next the line below, and the ends wrap, so the
+ * first page's previous is the last. A page listed more than once (a folder
+ * and its readme, an .html and its .md) has the nearest different page on each
+ * side. A site with one page has no neighbours: both are "". Whether a
+ * neighbour can be fetched is not known here; Stops gives the candidates for a
+ * caller that asks, as BonBon does.
  *
  * Parameters:
  *   page (string) — the address being shown; its .html, folder and fragment
@@ -296,8 +316,26 @@ func Key(address string) string {
  *   prev, next, ok := d.Neighbours("https://example.org/blog/2026/11/19/a.html")
  */
 func (d *Doc) Neighbours(page string) (prev, next string, ok bool) {
-	want := Key(page)
-	return d.neighboursWhere(func(l leaf) bool { return l.key == want })
+	return d.NeighboursOf(page)
+}
+
+/** NeighboursOf is Neighbours for a page known by more than one address: the
+ * address it was asked for and the one the server said it is
+ * (Content-Location, as for a folder served by its readme). The page is every
+ * line that matches any of them.
+ *
+ * Parameters:
+ *   addrs (...string) — the page's addresses
+ *
+ * Returns:
+ *   string, string, bool — as Neighbours; false too when no address is given
+ *
+ * Example:
+ *   prev, next, ok := d.NeighboursOf(view.Page.URL, view.Page.ContentLocation)
+ */
+func (d *Doc) NeighboursOf(addrs ...string) (prev, next string, ok bool) {
+	before, after, ok := d.StopsOf(addrs...)
+	return firstOf(before), firstOf(after), ok
 }
 
 /** NeighboursByPath is Neighbours for a page known only by its path under a
@@ -315,47 +353,122 @@ func (d *Doc) Neighbours(page string) (prev, next string, ok bool) {
  *   prev, next, ok := d.NeighboursByPath("blog/2026/11/19/a.md")
  */
 func (d *Doc) NeighboursByPath(rel string) (prev, next string, ok bool) {
-	want := "/" + strings.TrimPrefix(Key("http://x/" + strings.TrimPrefix(rel, "/"))[len("http://x"):], "/")
-	return d.neighboursWhere(func(l leaf) bool {
-		u, err := url.Parse(l.key)
-		return err == nil && strings.HasSuffix(u.Path, want)
-	})
+	before, after, ok := d.StopsByPath(rel)
+	return firstOf(before), firstOf(after), ok
 }
 
-func (d *Doc) neighboursWhere(match func(leaf) bool) (prev, next string, ok bool) {
-	all := d.leaves()
-	at := -1
-	for i, l := range all {
-		if match(l) {
-			at = i
-			break
+/** Stops returns the candidates for the pages before and after a page, in the
+ * order BonBon tries them: nearest first, wrapping around the ends, the page
+ * itself left out, a page that is listed twice once. A caller that can ask
+ * whether an address answers (BonBon sends one request, remembered) takes the
+ * first that does; Neighbours is the first of each without asking.
+ *
+ * Parameters:
+ *   page (string) — the address being shown, as for Neighbours
+ *
+ * Returns:
+ *   []string — candidates for the previous page, going up the list
+ *   []string — candidates for the next page, going down it
+ *   bool — false when the outline does not list the page
+ *
+ * Example:
+ *   before, after, ok := d.Stops("https://example.org/a.html")
+ */
+func (d *Doc) Stops(page string) (before, after []string, ok bool) {
+	return d.StopsOf(page)
+}
+
+/** StopsOf is Stops for a page known by more than one address; see NeighboursOf.
+ *
+ * Parameters:
+ *   addrs (...string) — the page's addresses
+ *
+ * Returns:
+ *   []string, []string, bool — as Stops
+ *
+ * Example:
+ *   before, after, ok := d.StopsOf(addr, contentLocation)
+ */
+func (d *Doc) StopsOf(addrs ...string) (before, after []string, ok bool) {
+	want := map[string]bool{}
+	for _, a := range addrs {
+		want[Key(a)] = true
+	}
+	if len(want) == 0 {
+		return nil, nil, false
+	}
+	return stopsIn(d.linesFor(addrs[0]), func(address string) bool { return want[Key(address)] })
+}
+
+/** StopsByPath is Stops for a page known only by its path under a site root;
+ * see NeighboursByPath for how a path matches.
+ *
+ * Parameters:
+ *   rel (string) — the page's path below the site root, with "/" separators
+ *
+ * Returns:
+ *   []string, []string, bool — as Stops; the addresses are the outline's own
+ *
+ * Example:
+ *   before, after, ok := d.StopsByPath("blog/a.md")
+ */
+func (d *Doc) StopsByPath(rel string) (before, after []string, ok bool) {
+	want := "/" + strings.TrimPrefix(Key("http://x/" + strings.TrimPrefix(rel, "/"))[len("http://x"):], "/")
+	match := func(address string) bool {
+		u, err := url.Parse(Key(address))
+		return err == nil && strings.HasSuffix(u.Path, want)
+	}
+	// A local page has no published address to compare with a site's folder, so
+	// it is in an included site's list when that site lists it.
+	for _, c := range d.root.children {
+		if c.folder == "" {
+			continue
+		}
+		if before, after, ok := stopsIn(pagesOf(c.children), match); ok {
+			return before, after, true
 		}
 	}
-	if at < 0 {
-		return "", "", false
+	return stopsIn(d.AllPages(), match)
+}
+
+func firstOf(s []string) string {
+	if len(s) == 0 {
+		return ""
 	}
-	// the list the page is in, in document order
-	var list []leaf
-	pos := 0
-	for i, l := range all {
-		if l.scope == all[at].scope {
-			if i == at {
-				pos = len(list)
+	return s[0]
+}
+
+// stopsIn is BonBon's lookup in one list: the lines that are the page are those
+// match accepts; from the first of them go up, from the last go down, wrapping,
+// skipping the page and any address already offered.
+func stopsIn(lines []Entry, match func(address string) bool) (before, after []string, ok bool) {
+	first, last := -1, -1
+	for i, l := range lines {
+		if match(l.URL) {
+			if first < 0 {
+				first = i
 			}
-			list = append(list, l)
+			last = i
 		}
 	}
-	before, after := "", ""
-	if pos > 0 {
-		before = list[pos-1].URL
+	if first < 0 {
+		return nil, nil, false
 	}
-	if pos+1 < len(list) {
-		after = list[pos+1].URL
+	n := len(lines)
+	walk := func(from, dir int) []string {
+		var out []string
+		seen := map[string]bool{}
+		for step := 1; step < n; step++ {
+			l := lines[((from+dir*step)%n+n)%n]
+			if match(l.URL) || seen[Key(l.URL)] {
+				continue
+			}
+			seen[Key(l.URL)] = true
+			out = append(out, l.URL)
+		}
+		return out
 	}
-	if all[at].reverse {
-		return after, before, true // newest first: previous is the older, the line below
-	}
-	return before, after, true
+	return walk(first, -1), walk(last, 1), true
 }
 
 // otherAttr returns an attribute opml has no field for, such as the name

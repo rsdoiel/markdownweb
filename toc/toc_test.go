@@ -47,12 +47,17 @@ func nb(t *testing.T, d *Doc, page string) (string, string, bool) {
 	return d.Neighbours(page)
 }
 
-func TestPagesGoByLineAndStopAtTheEndsOfTheGroup(t *testing.T) {
+// markdownweb DR-0004: one flat list for the whole outline, as BonBon reads it
+// (getTocNeighbors): the line above is previous, the line below is next, the
+// groups do not stop anything and the ends wrap. This test used to say that
+// Pages was a list of its own whose arrows stopped at A and C.
+func TestPagesGoByLineAcrossGroupsAndWrapAtTheEnds(t *testing.T) {
 	d := mustParse(t, antennaTOC, "http://x.example/.well-known/toc.opml")
 	for page, want := range map[string][2]string{
-		"http://x.example/a.md": {"", "http://x.example/b.md"},
-		"http://x.example/b.md": {"http://x.example/a.md", "http://x.example/c.md"},
-		"http://x.example/c.md": {"http://x.example/b.md", ""}, // the Collections group does not continue it
+		"http://x.example/a.md":          {"http://x.example/blog/o.md", "http://x.example/b.md"}, // the first wraps to the last
+		"http://x.example/b.md":          {"http://x.example/a.md", "http://x.example/c.md"},
+		"http://x.example/c.md":          {"http://x.example/b.md", "http://x.example/news_items.md"}, // Pages runs on into Collections
+		"http://x.example/news_items.md": {"http://x.example/c.md", "http://x.example/blog/n.md"},     // and Collections into Posts
 	} {
 		prev, next, ok := nb(t, d, page)
 		if !ok || prev != want[0] || next != want[1] {
@@ -61,14 +66,16 @@ func TestPagesGoByLineAndStopAtTheEndsOfTheGroup(t *testing.T) {
 	}
 }
 
-// Inside calendar outlines the list is newest first, so previous is the next
-// line down (the older page): antennaApp DR-0013 5, and Dave Winer's explicit keys.
-func TestPostsAreNewestFirstSoPreviousIsOlderAcrossMonths(t *testing.T) {
+// BonBon does not reverse calendar outlines: it reads the lines downward. This
+// test used to expect the newest post's previous to be the next line down (the
+// older post), antennaApp DR-0013 decision 5's rule for antenna's own HTML. A
+// file written newest first now gives the newer page as previous, as BonBon does.
+func TestPostsAreNotReversedWhateverTheCalendarSays(t *testing.T) {
 	d := mustParse(t, antennaTOC, "http://x.example/.well-known/toc.opml")
 	for page, want := range map[string][2]string{
-		"http://x.example/blog/n.md": {"http://x.example/blog/m.md", ""},                           // newest: only an older one
-		"http://x.example/blog/m.md": {"http://x.example/blog/o.md", "http://x.example/blog/n.md"}, // across the month boundary
-		"http://x.example/blog/o.md": {"", "http://x.example/blog/m.md"},                           // oldest: only a newer one
+		"http://x.example/blog/n.md": {"http://x.example/news_items.md", "http://x.example/blog/m.md"},
+		"http://x.example/blog/m.md": {"http://x.example/blog/n.md", "http://x.example/blog/o.md"}, // across the month boundary, the line below
+		"http://x.example/blog/o.md": {"http://x.example/blog/m.md", "http://x.example/a.md"},      // the last wraps to the first
 	} {
 		prev, next, ok := nb(t, d, page)
 		if !ok || prev != want[0] || next != want[1] {
@@ -77,10 +84,17 @@ func TestPostsAreNewestFirstSoPreviousIsOlderAcrossMonths(t *testing.T) {
 	}
 }
 
-func TestASingleEntryGroupHasNoNeighbours(t *testing.T) {
-	d := mustParse(t, antennaTOC, "http://x.example/.well-known/toc.opml")
-	prev, next, ok := nb(t, d, "http://x.example/news_items.md")
+// Only a site with one page has no neighbours (BonBon: "all the way around").
+// This test used to take a single-entry group for that case.
+func TestASitesOnlyPageHasNoNeighbours(t *testing.T) {
+	d := mustParse(t, `<opml version="2.0"><body><outline text="G"><outline text="x" url="http://x.example/only.md"/></outline></body></opml>`, "http://x.example/t")
+	prev, next, ok := nb(t, d, "http://x.example/only.md")
 	if !ok || prev != "" || next != "" {
+		t.Errorf("prev %q next %q ok %v", prev, next, ok)
+	}
+	// a page listed twice under two addresses is still one page
+	d = mustParse(t, `<opml version="2.0"><body><outline text="x" url="http://x.example/only.md"/><outline text="y" url="http://x.example/only.html"/></body></opml>`, "http://x.example/t")
+	if prev, next, ok := nb(t, d, "http://x.example/only.md"); !ok || prev != "" || next != "" {
 		t.Errorf("prev %q next %q ok %v", prev, next, ok)
 	}
 }
@@ -113,24 +127,32 @@ func daveTOC() string {
 		"\t</body>\n</opml>\n"
 }
 
-func TestDavesFileIsReadAndItsDaysAreOneNewestFirstListAcrossMonthsAndYears(t *testing.T) {
+// Dave Winer's file read as BonBon reads it (markdownweb DR-0004): the month
+// outline that is itself a page is a stop, and its first day follows it; the
+// days are not reordered, so "next" is the older day, the opposite of what the
+// calendar rule gave before. Dave's own pages carry urlPrev and urlNext in front
+// matter, which win; this is what a page that names none gets.
+func TestDavesFileIsReadLineByLineMonthIndexesAreStops(t *testing.T) {
 	d := mustParse(t, daveTOC(), "https://d.example/s/.well-known/toc.opml")
 	p := func(s string) string { return "https://d.example/s/" + s }
 	cases := map[string][2]string{
-		p("2026/11/19/a.md"): {p("2026/11/18/b.md"), ""},
-		p("2026/11/18/b.md"): {p("2026/10/31/c.md"), p("2026/11/19/a.md")}, // across the month
-		p("2026/10/31/c.md"): {p("2025/12/30/d.md"), p("2026/11/18/b.md")}, // across the year
-		p("2025/12/30/d.md"): {"", p("2026/10/31/c.md")},
+		p("2026/11/index.md"): {p("2025/12/30/d.md"), p("2026/11/19/a.md")}, // the first line wraps to the last
+		p("2026/11/19/a.md"):  {p("2026/11/index.md"), p("2026/11/18/b.md")},
+		p("2026/11/18/b.md"):  {p("2026/11/19/a.md"), p("2026/10/index.md")}, // the next month's page, then its days
+		p("2026/10/31/c.md"):  {p("2026/10/index.md"), p("2025/12/index.md")},
+		p("2025/12/30/d.md"):  {p("2025/12/index.md"), p("2026/11/index.md")}, // the last wraps to the first
 	}
 	for page, want := range cases {
 		prev, next, ok := nb(t, d, page)
 		if !ok || prev != want[0] || next != want[1] {
-			t.Errorf("%s: prev %q next %q ok %v", page, prev, next, ok)
+			t.Errorf("%s: prev %q next %q ok %v, want %q and %q", page, prev, next, ok, want[0], want[1])
 		}
 	}
-	// a month outline that is itself a page is an index, not a step in the sequence
-	if _, _, ok := nb(t, d, p("2026/11/index.md")); ok {
-		t.Error("a month index page was treated as an entry of the sequence")
+	// Entries is the older, leaves-only question and is unchanged: no month pages
+	for _, e := range d.Entries() {
+		if strings.HasSuffix(e.URL, "index.md") {
+			t.Errorf("Entries lists a page that has outlines under it: %s", e.URL)
+		}
 	}
 	// the text is decoded from ISO-8859-1
 	found := false
@@ -263,12 +285,15 @@ const oldestFirstTOC = `<opml version="2.0"><body><outline text="Posts">
 			<outline text="New" url="http://x.example/n.md"/></outline></outline>
 </outline></body></opml>`
 
-func TestOldestFirstPostsAreReadAsOldestFirst(t *testing.T) {
+// Oldest first or newest first, the lines are read downward (DR-0004). antenna
+// writes oldest first (antennaApp DR-0013 amendment) because BonBon does; the
+// direction detection that read the name attributes is gone with the reversal.
+func TestOldestFirstPostsAreReadDownward(t *testing.T) {
 	d := mustParse(t, oldestFirstTOC, "http://x.example/.well-known/toc.opml")
 	for page, want := range map[string][2]string{
-		"http://x.example/o.md": {"", "http://x.example/m.md"},
+		"http://x.example/o.md": {"http://x.example/n.md", "http://x.example/m.md"},
 		"http://x.example/m.md": {"http://x.example/o.md", "http://x.example/n.md"},
-		"http://x.example/n.md": {"http://x.example/m.md", ""},
+		"http://x.example/n.md": {"http://x.example/m.md", "http://x.example/o.md"},
 	} {
 		prev, next, ok := nb(t, d, page)
 		if !ok || prev != want[0] || next != want[1] {
@@ -277,13 +302,15 @@ func TestOldestFirstPostsAreReadAsOldestFirst(t *testing.T) {
 	}
 }
 
-// With one year and one month the names say nothing, so Dave's newest first stands.
-func TestWithNothingToCompareCalendarsAreNewestFirst(t *testing.T) {
+// This test used to expect Dave's newest first to stand when the names had
+// nothing to compare, so the first line's previous was the second. Now the next
+// line down is next, always.
+func TestWithNothingToCompareTheNextLineIsNext(t *testing.T) {
 	src := `<opml version="2.0"><body><outline text="Posts"><outline text="2026" type="calendarYear" name="2026">
 		<outline text="November 2026" type="calendarMonth" name="11">
-		<outline text="A" url="http://x.example/a.md"/><outline text="B" url="http://x.example/b.md"/></outline></outline></outline></body></opml>`
+		<outline text="A" url="http://x.example/a.md"/><outline text="B" url="http://x.example/b.md"/><outline text="C" url="http://x.example/c.md"/></outline></outline></outline></body></opml>`
 	d := mustParse(t, src, "http://x.example/.well-known/toc.opml")
-	if prev, next, _ := nb(t, d, "http://x.example/a.md"); prev != "http://x.example/b.md" || next != "" {
+	if prev, next, _ := nb(t, d, "http://x.example/a.md"); prev != "http://x.example/c.md" || next != "http://x.example/b.md" {
 		t.Errorf("prev %q next %q", prev, next)
 	}
 }
@@ -309,16 +336,20 @@ const antennaCollectionsTOC = `<?xml version="1.0" encoding="UTF-8"?>
 	</body>
 </opml>`
 
-func TestCollectionsStepBetweenThemselvesAndStopAtTheEnds(t *testing.T) {
+// antenna writes every collection's items page under one Collections group. In
+// BonBon's one list the group does not stop the arrows: they run on from Pages
+// into Collections and wrap at the ends (this test used to expect each group to
+// be a list of its own). The .html form of an items address finds the same entry.
+func TestCollectionsAreStopsInTheOneListAndTheEndsWrap(t *testing.T) {
 	d := mustParse(t, antennaCollectionsTOC, "http://x.example/antenna/.well-known/toc.opml")
 	const base = "http://x.example/antenna/"
 	for page, want := range map[string][2]string{
-		base + "columns_items.md":   {"", base + "craft_items.md"}, // not Pages: Search is not before it
-		base + "craft_items.md":     {base + "columns_items.md", base + "pacific_items.md"},
+		base + "index.md":           {base + "ebooks_items.md", base + "search.md"},
+		base + "search.md":          {base + "index.md", base + "columns_items.md"}, // Pages runs on into Collections
+		base + "columns_items.md":   {base + "search.md", base + "craft_items.md"},
 		base + "pacific_items.md":   {base + "craft_items.md", base + "ebooks_items.md"},
 		base + "pacific_items.html": {base + "craft_items.md", base + "ebooks_items.md"},
-		base + "ebooks_items.md":    {base + "pacific_items.md", ""},
-		base + "search.md":          {base + "index.md", ""}, // Pages does not continue into Collections
+		base + "ebooks_items.md":    {base + "pacific_items.md", base + "index.md"},
 	} {
 		prev, next, ok := nb(t, d, page)
 		if !ok || prev != want[0] || next != want[1] {

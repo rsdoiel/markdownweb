@@ -20,7 +20,8 @@ import (
  * lists the published site's addresses, so an entry matches the page when its
  * path ends with the page's path below the root, whatever its scheme and host;
  * the neighbours come back as absolute paths of files that exist inside the
- * root, and one that does not is dropped.
+ * root, and a line whose file does not exist is passed over for the next
+ * one, as BonBon passes over a neighbour with nothing at its address.
  *
  * Parameters:
  *   ctx (context.Context) — cancellation and the debug logger
@@ -52,8 +53,10 @@ func (f *Finder) LookupLocal(ctx context.Context, root, pagePath string) Result 
 		if doc == nil {
 			continue
 		}
-		if prev, next, ok := doc.NeighboursByPath(rel); ok {
-			res = Result{Prev: toLocal(site, prev), Next: toLocal(site, next), TOC: c, Found: true}
+		if before, after, ok := doc.StopsByPath(rel); ok {
+			// BonBon passes over a line with nothing at its address; for files that is free
+			res = Result{Before: existing(site, before), After: existing(site, after), TOC: c, Found: true}
+			res.Prev, res.Next = firstOf(res.Before), firstOf(res.After)
 			break
 		}
 	}
@@ -61,17 +64,16 @@ func (f *Finder) LookupLocal(ctx context.Context, root, pagePath string) Result 
 	return res
 }
 
-// toLocal maps an address from an outline to a file under the root, "" when
-// there is none.
-func toLocal(site *local.Site, address string) string {
-	if address == "" {
-		return ""
+// existing maps the candidates from an outline to the files under the root
+// that exist, in order, leaving out those with none.
+func existing(site *local.Site, addresses []string) []string {
+	var out []string
+	for _, a := range addresses {
+		if p, ok := mapToRoot(site, a); ok {
+			out = append(out, p)
+		}
 	}
-	p, ok := mapToRoot(site, address)
-	if !ok {
-		return ""
-	}
-	return p
+	return out
 }
 
 // mapToRoot finds the file under the site root that an outline address names:

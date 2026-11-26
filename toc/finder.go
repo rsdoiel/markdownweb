@@ -3,7 +3,6 @@ package toc
 import (
 	"context"
 	"fmt"
-	"io"
 	"net/http"
 	"net/url"
 	"path"
@@ -12,6 +11,8 @@ import (
 	"time"
 
 	"github.com/rsdoiel/markdownweb/debuglog"
+	"github.com/rsdoiel/markdownweb/fetch"
+	"github.com/rsdoiel/markdownweb/page"
 )
 
 const (
@@ -31,6 +32,9 @@ const accept = "text/x-opml, application/xml;q=0.9, text/xml;q=0.9, */*;q=0.1"
  *
  * Fields:
  *   Prev, Next (string) — the page before and after, absolute; "" for none
+ *   Before, After ([]string) — every candidate for Prev and for Next in the
+ *     order BonBon tries them (Doc.Stops), for a caller that checks that one
+ *     answers; Prev and Next are their first
  *   TOC (string) — the table of contents that listed the page
  *   Found (bool) — some table of contents lists the page
  *   Err (error) — reserved for a failure that is not "there is no table of contents"
@@ -40,10 +44,12 @@ const accept = "text/x-opml, application/xml;q=0.9, text/xml;q=0.9, */*;q=0.1"
  *   if r.Found { fmt.Println(r.Prev, r.Next) }
  */
 type Result struct {
-	Prev, Next string // the page before and after, absolute; "" for none
-	TOC        string // the table of contents that listed the page
-	Found      bool   // some table of contents lists the page
-	Err        error  // reserved for a failure that is not "there is no table of contents"
+	Prev, Next string   // the page before and after, absolute; "" for none
+	TOC        string   // the table of contents that listed the page
+	Found      bool     // some table of contents lists the page
+	Before     []string // candidates for Prev, nearest first (Stops)
+	After      []string
+	Err        error // reserved for a failure that is not "there is no table of contents"
 }
 
 type fetched struct {
@@ -60,7 +66,7 @@ type fetched struct {
  *   r := f.Lookup(ctx, "https://example.org/blog/a.html")
  */
 type Finder struct {
-	client  *http.Client
+	fetcher *fetch.Fetcher // nil: whatever page.Fetcher() is at the time of each request
 	mu      sync.Mutex
 	cache   map[string]*fetched
 	mirrors map[string]string // bonbon.json address to its urlMirrorOf, "" for none
@@ -73,7 +79,37 @@ type Finder struct {
  *   r := f.Lookup(ctx, "https://example.org/blog/2026/11/19/a.html")
  */
 func NewFinder() *Finder {
-	return &Finder{client: &http.Client{Timeout: 15 * time.Second}, cache: map[string]*fetched{}, mirrors: map[string]string{}}
+	return &Finder{cache: map[string]*fetched{}, mirrors: map[string]string{}}
+}
+
+/** NewFinderWith returns a Finder that reads every outline through f, so a
+ * crawler's own pause, User-Agent and robots.txt choice apply to table of
+ * contents reads and not only to page reads.
+ *
+ * Parameters:
+ *   f (*fetch.Fetcher) — the fetcher to use; nil is the same as NewFinder
+ *
+ * Returns:
+ *   *Finder — a Finder with its own cache
+ *
+ * Example:
+ *   f := toc.NewFinderWith(fetch.New(fetch.Options{UserAgent: "cmarkfind/0.1", Robots: true}))
+ *   l, err := f.Pages(ctx, "https://example.org/.well-known/toc.opml", toc.Limits{})
+ */
+func NewFinderWith(f *fetch.Fetcher) *Finder {
+	n := NewFinder()
+	n.fetcher = f
+	return n
+}
+
+// fx is the fetcher in use: the one given, or the package's current one, read
+// at the time so a program that installs its fetcher after making a Finder
+// still gets it.
+func (f *Finder) fx() *fetch.Fetcher {
+	if f.fetcher != nil {
+		return f.fetcher
+	}
+	return page.Fetcher()
 }
 
 // candidates lists the addresses a table of contents for the page may be at:
@@ -127,8 +163,8 @@ func (f *Finder) Lookup(ctx context.Context, page string) Result {
 		if doc == nil {
 			continue
 		}
-		if prev, next, ok := doc.Neighbours(page); ok {
-			res = Result{Prev: prev, Next: next, TOC: c, Found: true}
+		if before, after, ok := doc.Stops(page); ok {
+			res = Result{Prev: firstOf(before), Next: firstOf(after), Before: before, After: after, TOC: c, Found: true}
 			break
 		}
 	}
@@ -185,33 +221,20 @@ func (f *Finder) fetch(ctx context.Context, address string) *Doc {
 	defer func() {
 		log.Event("toc.fetch", "url", address, "status", status, "bytes", size, "entries", entries, "includes", includes, "ms", time.Since(start), "err", err)
 	}()
-	req, e := http.NewRequestWithContext(ctx, http.MethodGet, address, nil)
+	res, e := f.fx().Get(ctx, address, accept)
 	if e != nil {
 		err = e
 		return nil
 	}
-	req.Header.Set("Accept", accept)
-	resp, e := f.client.Do(req)
-	if e != nil {
-		err = e
+	status, size = res.Status, len(res.Body)
+	if res.Status != http.StatusOK {
 		return nil
 	}
-	defer resp.Body.Close()
-	status = resp.StatusCode
-	if resp.StatusCode != http.StatusOK {
-		return nil
-	}
-	body, e := io.ReadAll(io.LimitReader(resp.Body, maxTOC+1))
-	size = len(body)
-	if e != nil {
-		err = e
-		return nil
-	}
-	if len(body) > maxTOC {
+	if len(res.Body) > maxTOC {
 		err = fmt.Errorf("larger than %d bytes", maxTOC)
 		return nil
 	}
-	doc, err = Parse(body, resp.Request.URL.String())
+	doc, err = Parse(res.Body, res.FinalURL)
 	if err != nil {
 		return nil
 	}

@@ -169,8 +169,9 @@ func TestIncludesOnTheSameHostAreMergedAndOthersAreNot(t *testing.T) {
 			<outline text="d1" type="calendarDay" url="{base}/scripting/2026/11/18/b.md"/></outline></body></opml>`,
 	})
 	r := NewFinder().Lookup(context.Background(), site.URL+"/scripting/2026/11/19/a.md")
-	// found in the section's own file, the nearest above the page
-	if !r.Found || r.Prev != site.URL+"/scripting/2026/11/18/b.md" || r.Next != "" {
+	// the root's outline with the include read in place: a then b, one list that
+	// wraps (DR-0004; before, Dave's newest first made b the previous and nothing next)
+	if !r.Found || r.Prev != site.URL+"/scripting/2026/11/18/b.md" || r.Next != site.URL+"/scripting/2026/11/18/b.md" {
 		t.Errorf("%+v", r)
 	}
 	// a root-only site: the page is known only through the include
@@ -268,7 +269,7 @@ func TestALocalSitePublishedUnderASubFolderStillMatches(t *testing.T) {
 		"a.md":                 "# a", "b.md": "# b",
 	})
 	r := NewFinder().LookupLocal(context.Background(), root, filepath.Join(root, "a.md"))
-	if !r.Found || r.Next != filepath.Join(root, "b.md") || r.Prev != "" {
+	if !r.Found || r.Next != filepath.Join(root, "b.md") || r.Prev != filepath.Join(root, "b.md") { // two pages: the other one both ways (wraps, DR-0004)
 		t.Errorf("%+v", r)
 	}
 }
