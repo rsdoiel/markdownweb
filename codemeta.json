@@ -6,9 +6,9 @@
   "codeRepository": "https://github.com/rsdoiel/markdownweb",
   "issueTracker": "https://github.com/rsdoiel/markdownweb/issues",
   "license": "https://www.gnu.org/licenses/agpl-3.0.txt",
-  "version": "0.0.0",
-  "developmentStatus": "concept",
-  "releaseNotes": "- not yet released: M1 extract from cmarkbrowser internal/",
+  "version": "0.0.1",
+  "developmentStatus": "wip",
+  "releaseNotes": "- first release, extracted from cmarkbrowser's internal/ with no change of behaviour\n- page: Fetch (BonBon's Accept, the declared alternate link, the .md sibling, Content-Location), FetchReader, FetchOther, Classify, ReadFile\n- toc: Parse of .well-known/toc.opml through rsdoiel/opml, Doc.Neighbours, Finder (which toc lists a page, includes followed, with limits), LookupLocal, Mirror (urlMirrorOf)\n- local: a site on disk, links confined to its root\n- reader: HTML to a Markdown reader view\n- debuglog: a nil-safe JSON-lines tracer carried in the context\n- requires github.com/rsdoiel/frontmatter, github.com/rsdoiel/opml and golang.org/x/net; no Charm, SQLite or cgo",
   "dateCreated": "2026-11-26",
   "dateModified": "2026-11-26",
   "copyrightYear": 2026,
@@ -51,5 +51,6 @@
       "familyName": "Doiel",
       "email": "rsdoiel@gmail.com"
     }
-  ]
+  ],
+  "datePublished": "2026-11-26"
 }

@@ -14,7 +14,7 @@ maintainer:
     id: https://orcid.org/0000-0003-0900-6903
 
 repository_code: https://github.com/rsdoiel/markdownweb
-version: 0.0.0
+version: 0.0.1
 license_url: https://www.gnu.org/licenses/agpl-3.0.txt
 
 programming_language:
@@ -28,15 +28,21 @@ keywords:
   - markdown
   - reader
 
-
+date_released: 2026-11-26
 ---
 
 About this software
 ===================
 
-## markdownweb 0.0.0
+## markdownweb 0.0.1
 
-- not yet released: M1 extract from cmarkbrowser internal/
+- first release, extracted from cmarkbrowser's internal/ with no change of behaviour
+- page: Fetch (BonBon's Accept, the declared alternate link, the .md sibling, Content-Location), FetchReader, FetchOther, Classify, ReadFile
+- toc: Parse of .well-known/toc.opml through rsdoiel/opml, Doc.Neighbours, Finder (which toc lists a page, includes followed, with limits), LookupLocal, Mirror (urlMirrorOf)
+- local: a site on disk, links confined to its root
+- reader: HTML to a Markdown reader view
+- debuglog: a nil-safe JSON-lines tracer carried in the context
+- requires github.com/rsdoiel/frontmatter, github.com/rsdoiel/opml and golang.org/x/net; no Charm, SQLite or cgo
 
 ## Authors
 

@@ -17,4 +17,4 @@ go get github.com/rsdoiel/markdownweb
 
 Requires Go 1.27.4 or later, `github.com/rsdoiel/frontmatter`, `github.com/rsdoiel/opml` and `golang.org/x/net`. No Charm, no SQLite, no cgo.
 
-Not yet released. The packages keep the behaviour they had in cmarkbrowser.
+The packages keep the behaviour they had in cmarkbrowser.
