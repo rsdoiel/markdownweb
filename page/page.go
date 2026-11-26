@@ -15,10 +15,12 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/rsdoiel/frontmatter"
 	"github.com/rsdoiel/markdownweb/debuglog"
+	"github.com/rsdoiel/markdownweb/fetch"
 	"github.com/rsdoiel/markdownweb/reader"
 	"golang.org/x/net/html"
 )
@@ -26,12 +28,59 @@ import (
 // Sentinels for the DR-0003 classes a fetch can fail in. Wrap with %w.
 var (
 	// ErrData marks content that was read and is wrong (exit 65).
-	ErrData = errors.New("bad content")
+	ErrData = fetch.ErrData
 	// ErrNoInput marks a page that is not there (exit 66).
 	ErrNoInput = errors.New("no such page")
 	// ErrUnavailable marks a server that cannot be reached (exit 69).
-	ErrUnavailable = errors.New("server unavailable")
+	ErrUnavailable = fetch.ErrUnavailable
+	// ErrForbidden marks an address robots.txt does not allow, when the
+	// installed fetcher reads it (exit 1).
+	ErrForbidden = fetch.ErrForbidden
 )
+
+var (
+	fetcherMu      sync.RWMutex
+	currentFetcher = fetch.New(fetch.Options{Timeout: 30 * time.Second, MaxRedirects: 10})
+)
+
+/** Fetcher returns the fetcher every request of this package goes through. The
+ * default names itself markdownweb/VERSION, does not pause, does not read
+ * robots.txt, and follows ten redirects, as the browser did before it.
+ *
+ * Returns:
+ *   *fetch.Fetcher
+ *
+ * Example:
+ *   resp, err := page.Fetcher().Open(ctx, "https://example.org/", "")
+ */
+func Fetcher() *fetch.Fetcher {
+	fetcherMu.RLock()
+	defer fetcherMu.RUnlock()
+	return currentFetcher
+}
+
+/** SetFetcher installs the fetcher the package uses, so a crawler can pause per
+ * host, send its own User-Agent and obey robots.txt. It returns the one it
+ * replaces.
+ *
+ * Parameters:
+ *   f (*fetch.Fetcher) — the new fetcher; nil is ignored
+ *
+ * Returns:
+ *   *fetch.Fetcher — the previous fetcher
+ *
+ * Example:
+ *   page.SetFetcher(fetch.New(fetch.Options{UserAgent: "cmarkfind/0.1", Robots: true}))
+ */
+func SetFetcher(f *fetch.Fetcher) *fetch.Fetcher {
+	fetcherMu.Lock()
+	defer fetcherMu.Unlock()
+	old := currentFetcher
+	if f != nil {
+		currentFetcher = f
+	}
+	return old
+}
 
 // errNotMarkdown marks a good response that is not a Markdown page. It is
 // always wrapped with ErrData; Fetch uses it to decide to try a sibling.
@@ -320,15 +369,9 @@ func fetchAttempt(ctx context.Context, rawurl string, a *attempt) (*Page, error)
 	if err != nil || (u.Scheme != "http" && u.Scheme != "https") {
 		return nil, fmt.Errorf("%w: %q is not an http or https address", ErrData, rawurl)
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, rawurl, nil)
+	resp, err := Fetcher().Open(ctx, rawurl, Accept)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %s", ErrData, err)
-	}
-	req.Header.Set("Accept", Accept)
-	client := &http.Client{Timeout: 30 * time.Second}
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("%w: %s", ErrUnavailable, err)
+		return nil, err
 	}
 	defer resp.Body.Close()
 	a.status, a.contentType, a.server, a.location = resp.StatusCode, resp.Header.Get("Content-Type"), resp.Header.Get("Server"), resp.Header.Get("Content-Location")
@@ -543,14 +586,9 @@ func FetchReader(ctx context.Context, rawurl string) (*Page, error) {
 	if err != nil || (u.Scheme != "http" && u.Scheme != "https") {
 		return nil, fmt.Errorf("%w: %q is not an http or https address", ErrData, rawurl)
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, rawurl, nil)
+	resp, err := Fetcher().Open(ctx, rawurl, "text/html, application/xhtml+xml")
 	if err != nil {
-		return nil, fmt.Errorf("%w: %s", ErrData, err)
-	}
-	req.Header.Set("Accept", "text/html, application/xhtml+xml")
-	resp, err := (&http.Client{Timeout: 30 * time.Second}).Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("%w: %s", ErrUnavailable, err)
+		return nil, err
 	}
 	defer resp.Body.Close()
 	ct := resp.Header.Get("Content-Type")

@@ -3,6 +3,8 @@
  *
  * The code is in subpackages:
  *
+ *   fetch     a polite HTTP client: pause per host, a named User-Agent,
+ *             Retry-After, opt-in robots.txt
  *   page      fetch a page as Markdown: BonBon's Accept header, the declared
  *             alternate link, the .md sibling, Content-Location
  *   toc       read a site's .well-known/toc.opml and find a page's neighbours

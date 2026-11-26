@@ -5,6 +5,7 @@ go 1.27.4
 require (
 	github.com/rsdoiel/frontmatter v0.0.1
 	github.com/rsdoiel/opml v0.0.12
+	github.com/temoto/robotstxt v1.1.2
 	golang.org/x/net v0.55.0
 )
 

@@ -112,14 +112,9 @@ func FetchOther(ctx context.Context, rawurl string) (*Page, error) {
 	if err != nil || (u.Scheme != "http" && u.Scheme != "https") {
 		return nil, fmt.Errorf("%w: %q is not an http or https address", ErrData, rawurl)
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, rawurl, nil)
+	resp, err := Fetcher().Open(ctx, rawurl, "*/*")
 	if err != nil {
-		return nil, fmt.Errorf("%w: %s", ErrData, err)
-	}
-	req.Header.Set("Accept", "*/*")
-	resp, err := (&http.Client{Timeout: 30 * time.Second}).Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("%w: %s", ErrUnavailable, err)
+		return nil, err
 	}
 	defer resp.Body.Close()
 	switch {

@@ -1,6 +1,13 @@
 
 # Change log
 
+## v0.0.3, 2026-11-26
+
+- New package `fetch` (markdownweb DR-0002): a polite HTTP client with a pause per host, a named User-Agent, bounded redirects, body size and waits, `Retry-After`, and opt-in `robots.txt` (`github.com/temoto/robotstxt`) with `Crawl-delay`. `Get` reads the body; `Open` returns the response for a caller that reads part of it.
+- `page.Fetch`, `page.FetchOther` and `page.FetchReader` now go through a shared fetcher: `page.Fetcher` and `page.SetFetcher`. The default sends `User-Agent: markdownweb/VERSION` (it was Go's default), keeps the 30 s timeout and ten redirects, and does not pause or read `robots.txt`.
+- `page.ErrData` and `page.ErrUnavailable` are the same values as `fetch.ErrData` and `fetch.ErrUnavailable`; new `page.ErrForbidden`.
+- antennaApp harvests through `fetch` (antennaApp's harvest keeps its own pause, User-Agent and exit classes).
+
 ## v0.0.2, 2026-11-26
 
 - `page.PrefersMarkdown`: whether an Accept header asks for Markdown in preference to HTML (moved from antennaApp's preview server).

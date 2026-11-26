@@ -14,7 +14,7 @@ maintainer:
     id: https://orcid.org/0000-0003-0900-6903
 
 repository_code: https://github.com/rsdoiel/markdownweb
-version: 0.0.2
+version: 0.0.3
 license_url: https://www.gnu.org/licenses/agpl-3.0.txt
 
 programming_language:
@@ -27,6 +27,8 @@ keywords:
   - toc
   - markdown
   - reader
+  - robots.txt
+  - fetcher
 
 date_released: 2026-11-26
 ---
@@ -34,11 +36,12 @@ date_released: 2026-11-26
 About this software
 ===================
 
-## markdownweb 0.0.2
+## markdownweb 0.0.3
 
-- page: PrefersMarkdown (an Accept header asks for Markdown), MarkdownPath (a file path's Markdown copy), DeclaredAlternate (now exported); shared with antennaApp
-- page: a blank href in a declared alternate link is ignored (it resolved to the page itself)
-- toc: FileName, the .well-known/toc.opml path, used by the local and remote finders
+- fetch: new package, a polite HTTP client: pause per host, named User-Agent, bounded redirects, body size and waits, Retry-After, and opt-in robots.txt with Crawl-delay (github.com/temoto/robotstxt); Get reads a body, Open returns the response (markdownweb DR-0002)
+- page: Fetch, FetchOther and FetchReader go through a shared fetcher; page.Fetcher and page.SetFetcher let a crawler install its own. The default sends User-Agent markdownweb/VERSION (it was Go's), keeps the 30 s timeout and ten redirects, and neither pauses nor reads robots.txt
+- page: ErrData and ErrUnavailable are now fetch.ErrData and fetch.ErrUnavailable; new ErrForbidden
+- antennaApp harvests through fetch
 
 ## Authors
 
@@ -70,6 +73,7 @@ A Go module for the protocol layer of the Markdown web: fetch a page as Markdown
 - Go >= 1.27.4
 - github.com/rsdoiel/frontmatter >= 0.0.1
 - github.com/rsdoiel/opml >= 0.0.12
+- github.com/temoto/robotstxt >= 1.1.2
 - golang.org/x/net >= 0.55.0
 
 
