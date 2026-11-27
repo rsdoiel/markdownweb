@@ -10,6 +10,8 @@
  *   toc       read a site's .well-known/toc.opml and find a page's neighbours
  *   local     a site on disk, links confined to its root
  *   reader    HTML to a Markdown reader view
+ *   slug      a Markdown heading's fragment identifier (GitHub's rule), one
+ *             heading or a whole page with repeats numbered
  *   debuglog  a nil-safe JSON-lines tracer carried in the context
  *
  * It imports nothing from Charm or SQLite and uses no cgo. Front matter is

@@ -1,6 +1,10 @@
 
 # Change log
 
+## Unreleased
+
+- New package `slug`: `slug.Of` (the fragment identifier of one heading, GitHub's rule) and `slug.Slugger` (`New`, `Next`, `Reset`) for a whole page, where a repeated heading gets `-1`, `-2`, skipping any suffix already taken. For cmarkfind, cmarkbrowser's `#fragment` links and antennaApp's heading links.
+
 ## v0.0.5, 2026-11-26
 
 - `fetch.Fetcher.GetIf` and `fetch.Validators`: a conditional request (If-None-Match, If-Modified-Since) with the same pause, retry and robots rules as `Get`. `fetch.Result` gains `ETag`, `LastModified` and `NotModified` (true on a 304); `Get` fills the first two. Asked for by cmarkfind's remote fill (cmarkfind DR-0001).
