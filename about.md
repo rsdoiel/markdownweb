@@ -14,7 +14,7 @@ maintainer:
     id: https://orcid.org/0000-0003-0900-6903
 
 repository_code: https://github.com/rsdoiel/markdownweb
-version: 0.0.4
+version: 0.0.5
 license_url: https://www.gnu.org/licenses/agpl-3.0.txt
 
 programming_language:
@@ -36,12 +36,10 @@ date_released: 2026-11-26
 About this software
 ===================
 
-## markdownweb 0.0.4
+## markdownweb 0.0.5
 
-- toc: Finder.Pages and PagesLocal list every page a table of contents names, flattened as BonBon does, includes read in place, within limits on depth, pages, files, bytes and hosts; loops skipped and reported (markdownweb DR-0003). Doc.AllPages and Entry.Group do the same at the document level
-- toc: BEHAVIOUR CHANGE, Neighbours and NeighboursByPath follow BonBon's rule: one flat list, previous the line above, next the line below, the ends wrap, no calendar reversal, a page with outlines under it is a stop, an included site is a list of its own (markdownweb DR-0004). Matches BonBon 0.6.57 on 220 of 220 pages of rsdoiel.github.io. Entries keeps its leaves-only list
-- toc: new Doc.Stops, StopsOf, StopsByPath, Doc.NeighboursOf, Result.Before and Result.After, ErrNoOutline and the Skip reasons; LookupLocal passes over a neighbour with no file
-- toc: NewFinderWith(*fetch.Fetcher); the Finder reads outlines and bonbon.json through fetch, so it sends the program's User-Agent and honours its pause and robots.txt settings
+- fetch: new Fetcher.GetIf and Validators, a conditional request (If-None-Match, If-Modified-Since) with the same pause, retry and robots rules as Get. Result gains ETag, LastModified and NotModified (true on a 304); Get fills the first two. Asked for by cmarkfind's remote fill (cmarkfind DR-0001)
+- no other behaviour change
 
 ## Authors
 

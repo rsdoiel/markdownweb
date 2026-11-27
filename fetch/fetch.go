@@ -69,12 +69,33 @@ type Options struct {
  *   ContentType (string) — the Content-Type header
  *   Body ([]byte) — the body, at most Options.MaxBody bytes
  *   FinalURL (string) — the address after redirects
+ *   ETag (string) — the ETag header, "" when there is none
+ *   LastModified (string) — the Last-Modified header, "" when there is none
+ *   NotModified (bool) — the answer was 304 to a conditional request (GetIf)
  */
 type Result struct {
-	Status      int
-	ContentType string
-	Body        []byte
-	FinalURL    string
+	Status       int
+	ContentType  string
+	Body         []byte
+	FinalURL     string
+	ETag         string
+	LastModified string
+	NotModified  bool
+}
+
+/** Validators are what an earlier read of a page returned, sent back so the
+ * server can say the page has not changed. An empty field is not sent.
+ *
+ * Fields:
+ *   ETag (string) — sent as If-None-Match
+ *   LastModified (string) — sent as If-Modified-Since
+ *
+ * Example:
+ *   v := fetch.Validators{ETag: res.ETag, LastModified: res.LastModified}
+ */
+type Validators struct {
+	ETag         string
+	LastModified string
 }
 
 /** Fetcher makes the requests of one run. It is safe for concurrent use; the
@@ -277,6 +298,10 @@ func (f *Fetcher) allowed(u *url.URL) error {
  *   if err == nil { defer resp.Body.Close() }
  */
 func (f *Fetcher) Open(ctx context.Context, href, accept string) (*http.Response, error) {
+	return f.open(ctx, href, accept, Validators{})
+}
+
+func (f *Fetcher) open(ctx context.Context, href, accept string, v Validators) (*http.Response, error) {
 	u, err := url.Parse(href)
 	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
 		return nil, fmt.Errorf("%w: bad URL %q", ErrData, href)
@@ -284,7 +309,7 @@ func (f *Fetcher) Open(ctx context.Context, href, accept string) (*http.Response
 	if err := f.allowed(u); err != nil {
 		return nil, err
 	}
-	resp, err := f.do(ctx, u, accept)
+	resp, err := f.do(ctx, u, accept, v)
 	if err != nil {
 		return nil, err
 	}
@@ -302,7 +327,7 @@ func (f *Fetcher) Open(ctx context.Context, href, accept string) (*http.Response
 	resp.Body.Close()
 	f.o.Sleep(wait)
 	f.touch(u.Host)
-	return f.do(ctx, u, accept)
+	return f.do(ctx, u, accept, v)
 }
 
 /** Get requests href like Open and reads the body, which may be at most
@@ -322,7 +347,30 @@ func (f *Fetcher) Open(ctx context.Context, href, accept string) (*http.Response
  *   res, err := f.Get(ctx, "https://example.org/toc.opml", "text/x-opml")
  */
 func (f *Fetcher) Get(ctx context.Context, href, accept string) (*Result, error) {
-	resp, err := f.Open(ctx, href, accept)
+	return f.GetIf(ctx, href, accept, Validators{})
+}
+
+/** GetIf is Get as a conditional request: the validators of an earlier read
+ * are sent (If-None-Match, If-Modified-Since), and a 304 comes back as a Result
+ * with NotModified set and no body. It waits, retries and obeys robots.txt as
+ * Get does.
+ *
+ * Parameters:
+ *   ctx    (context.Context) — cancels the request
+ *   href   (string)          — an http or https address
+ *   accept (string)          — the Accept header, empty for none
+ *   v      (Validators)      — what the last read returned; empty fields are not sent
+ *
+ * Returns:
+ *   *Result — the response; NotModified when the server answered 304
+ *   error   — as Get
+ *
+ * Example:
+ *   res, err := f.GetIf(ctx, addr, "text/markdown", fetch.Validators{ETag: old.ETag})
+ *   if err == nil && res.NotModified { keepStoredCopy() }
+ */
+func (f *Fetcher) GetIf(ctx context.Context, href, accept string, v Validators) (*Result, error) {
+	resp, err := f.open(ctx, href, accept, v)
 	if err != nil {
 		return nil, err
 	}
@@ -336,15 +384,18 @@ func (f *Fetcher) Get(ctx context.Context, href, accept string) (*Result, error)
 		return nil, fmt.Errorf("%w: %s is over %d bytes", ErrTooLarge, href, f.o.MaxBody)
 	}
 	return &Result{
-		Status:      resp.StatusCode,
-		ContentType: resp.Header.Get("Content-Type"),
-		Body:        body,
-		FinalURL:    resp.Request.URL.String(),
+		Status:       resp.StatusCode,
+		ContentType:  resp.Header.Get("Content-Type"),
+		Body:         body,
+		FinalURL:     resp.Request.URL.String(),
+		ETag:         resp.Header.Get("ETag"),
+		LastModified: resp.Header.Get("Last-Modified"),
+		NotModified:  resp.StatusCode == http.StatusNotModified,
 	}, nil
 }
 
 // do makes one request, after the pause.
-func (f *Fetcher) do(ctx context.Context, u *url.URL, accept string) (*http.Response, error) {
+func (f *Fetcher) do(ctx context.Context, u *url.URL, accept string, v Validators) (*http.Response, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
 	if err != nil {
 		return nil, fmt.Errorf("%w: bad URL %q: %v", ErrData, u, err)
@@ -352,6 +403,12 @@ func (f *Fetcher) do(ctx context.Context, u *url.URL, accept string) (*http.Resp
 	req.Header.Set("User-Agent", f.o.UserAgent)
 	if accept != "" {
 		req.Header.Set("Accept", accept)
+	}
+	if v.ETag != "" {
+		req.Header.Set("If-None-Match", v.ETag)
+	}
+	if v.LastModified != "" {
+		req.Header.Set("If-Modified-Since", v.LastModified)
 	}
 	f.wait(u.Host)
 	resp, err := f.client.Do(req)

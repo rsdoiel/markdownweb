@@ -464,3 +464,74 @@ func TestConcurrentGetsAreSafe(t *testing.T) {
 	}
 	wg.Wait()
 }
+
+// cmarkfind DR-0001: a refill asks "has it changed?" with what the last read
+// returned, so a 304 costs no body.
+func TestGetReturnsETagAndLastModified(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("ETag", `"v1"`)
+		w.Header().Set("Last-Modified", "Wed, 25 Nov 2026 10:00:00 GMT")
+		w.Write([]byte("hello"))
+	}))
+	defer srv.Close()
+	f, _ := newTest(Options{})
+	res, err := f.Get(context.Background(), srv.URL+"/a.md", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.ETag != `"v1"` || res.LastModified != "Wed, 25 Nov 2026 10:00:00 GMT" {
+		t.Errorf("got %+v", res)
+	}
+}
+
+func TestGetIfSendsValidatorsAndTakesA304(t *testing.T) {
+	var gotETag, gotSince string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotETag, gotSince = r.Header.Get("If-None-Match"), r.Header.Get("If-Modified-Since")
+		if gotETag == `"v1"` {
+			w.WriteHeader(http.StatusNotModified)
+			return
+		}
+		w.Write([]byte("new"))
+	}))
+	defer srv.Close()
+	f, _ := newTest(Options{})
+	res, err := f.GetIf(context.Background(), srv.URL+"/a.md", "", Validators{ETag: `"v1"`, LastModified: "Wed, 25 Nov 2026 10:00:00 GMT"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Status != 304 || len(res.Body) != 0 || res.NotModified != true {
+		t.Errorf("got %+v", res)
+	}
+	if gotETag != `"v1"` || gotSince != "Wed, 25 Nov 2026 10:00:00 GMT" {
+		t.Errorf("headers sent: %q %q", gotETag, gotSince)
+	}
+	res, _ = f.GetIf(context.Background(), srv.URL+"/a.md", "", Validators{ETag: `"old"`})
+	if res.Status != 200 || string(res.Body) != "new" || res.NotModified {
+		t.Errorf("a changed page: %+v", res)
+	}
+}
+
+func TestGetIfWithNoValidatorsSendsNoConditionalHeaders(t *testing.T) {
+	var h http.Header
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { h = r.Header.Clone() }))
+	defer srv.Close()
+	f, _ := newTest(Options{})
+	if _, err := f.GetIf(context.Background(), srv.URL+"/", "", Validators{}); err != nil {
+		t.Fatal(err)
+	}
+	if h.Get("If-None-Match") != "" || h.Get("If-Modified-Since") != "" {
+		t.Errorf("sent %v", h)
+	}
+}
+
+// A conditional request still waits its turn and obeys robots.txt.
+func TestGetIfIsPoliteLikeGet(t *testing.T) {
+	srv, _ := robotsSite(200, "User-agent: *\nDisallow: /private/\n")
+	defer srv.Close()
+	f, _ := newTest(Options{Robots: true})
+	_, err := f.GetIf(context.Background(), srv.URL+"/private/x.md", "", Validators{ETag: `"v"`})
+	if !errors.Is(err, ErrForbidden) {
+		t.Errorf("err = %v, want ErrForbidden", err)
+	}
+}
