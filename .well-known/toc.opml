@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<opml version="2.0">
+	<head>
+		<title>markdownweb</title>
+		<dateModified>Thu, 26 Nov 2026 17:04:39 -0800</dateModified>
+	</head>
+	<body>
+		<outline text="Pages">
+			<outline text="markdownweb" url="https://rsdoiel.github.io/markdownweb/index.md"></outline>
+			<outline text="Change log" url="https://rsdoiel.github.io/markdownweb/CHANGES.md"></outline>
+			<outline text="markdownweb" url="https://rsdoiel.github.io/markdownweb/about.md"></outline>
+		</outline>
+	</body>
+</opml>

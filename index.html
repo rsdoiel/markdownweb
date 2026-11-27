@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+    <title>markdownweb</title>
+    <link rel="alternate" type="text/markdown" href="index.md">
+    <link rel="stylesheet" href="/css/site.css">
+</head>
+<body>
+<a href="#main-content" class="visually-hidden">skip to main content</a>
+<nav>
+<ul>
+    <li><a href="index.html">Home</a></li>
+    <li><a href="LICENSE">LICENSE</a></li>
+    <li><a href="CHANGES.html">Changes</a></li>
+    <li><a href="about.html">About</a></li>
+    <li><a href="https://pkg.go.dev/github.com/rsdoiel/markdownweb">Go package docs</a></li>
+    <li><a href="https://github.com/rsdoiel/markdownweb">Code Repository</a></li>
+</ul>
+</nav>
+<section id="main-content">
+<h1 id="markdownweb">markdownweb</h1>
+<p>A Go module for the protocol layer of the Markdown web, shared by its
+readers (cmarkbrowser, cmarkfind) and its writers (antennaApp).
+Extracted from cmarkbrowser’s <code>internal/</code> (markdownweb
+DR-0001).</p>
+<table>
+<colgroup>
+<col style="width: 50%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr>
+<th scope="col">Package</th>
+<th scope="col">Holds</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>fetch</code></td>
+<td>the polite HTTP client: pause per host, named User-Agent, bounded
+redirects, body size and <code>Retry-After</code>, opt-in
+<code>robots.txt</code></td>
+</tr>
+<tr>
+<td><code>page</code></td>
+<td><code>Fetch</code> (BonBon’s <code>Accept</code>, the declared
+alternate link, the <code>.md</code> sibling,
+<code>Content-Location</code>), <code>FetchOther</code>,
+<code>Classify</code>, <code>ReadFile</code></td>
+</tr>
+<tr>
+<td><code>toc</code></td>
+<td>parse <code>.well-known/toc.opml</code> (through
+<code>rsdoiel/opml</code>), <code>Finder</code> (which toc lists a page,
+includes followed, with limits; <code>Pages</code> lists every page),
+<code>Neighbours</code> (previous and next by BonBon’s rule),
+<code>LookupLocal</code>, <code>Mirror</code></td>
+</tr>
+<tr>
+<td><code>local</code></td>
+<td>a site on disk; links confined to the root</td>
+</tr>
+<tr>
+<td><code>reader</code></td>
+<td>HTML to a Markdown reader view</td>
+</tr>
+<tr>
+<td><code>debuglog</code></td>
+<td>a nil-safe JSON-lines tracer carried in the context</td>
+</tr>
+</tbody>
+</table>
+<pre class="shell"><code>go get github.com/rsdoiel/markdownweb</code></pre>
+<p>Requires Go 1.27.4 or later,
+<code>github.com/rsdoiel/frontmatter</code>,
+<code>github.com/rsdoiel/opml</code>,
+<code>github.com/temoto/robotstxt</code> and
+<code>golang.org/x/net</code>. No Charm, no SQLite, no cgo.</p>
+<p>The packages keep the behaviour they had in cmarkbrowser, except
+<code>toc.Neighbours</code>, which since v0.0.4 follows BonBon’s rule
+(see <code>CHANGES.md</code>).</p>
+</section>
+<footer>
+<p>markdownweb. This page is also published as <a href="index.md">Markdown</a>.</p>
+</footer>
+</body>
+</html>

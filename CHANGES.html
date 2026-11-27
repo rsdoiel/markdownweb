@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+    <title>markdownweb</title>
+    <link rel="alternate" type="text/markdown" href="CHANGES.md">
+    <link rel="stylesheet" href="/css/site.css">
+</head>
+<body>
+<a href="#main-content" class="visually-hidden">skip to main content</a>
+<nav>
+<ul>
+    <li><a href="index.html">Home</a></li>
+    <li><a href="LICENSE">LICENSE</a></li>
+    <li><a href="CHANGES.html">Changes</a></li>
+    <li><a href="about.html">About</a></li>
+    <li><a href="https://pkg.go.dev/github.com/rsdoiel/markdownweb">Go package docs</a></li>
+    <li><a href="https://github.com/rsdoiel/markdownweb">Code Repository</a></li>
+</ul>
+</nav>
+<section id="main-content">
+<h1 id="change-log">Change log</h1>
+<h2 id="v0.0.5-2026-11-26">v0.0.5, 2026-11-26</h2>
+<ul>
+<li><code>fetch.Fetcher.GetIf</code> and <code>fetch.Validators</code>:
+a conditional request (If-None-Match, If-Modified-Since) with the same
+pause, retry and robots rules as <code>Get</code>.
+<code>fetch.Result</code> gains <code>ETag</code>,
+<code>LastModified</code> and <code>NotModified</code> (true on a 304);
+<code>Get</code> fills the first two. Asked for by cmarkfind’s remote
+fill (cmarkfind DR-0001).</li>
+</ul>
+<h2 id="v0.0.4-2026-11-26">v0.0.4, 2026-11-26</h2>
+<ul>
+<li><code>toc.Finder.Pages</code> and <code>PagesLocal</code>
+(markdownweb DR-0003): every page a table of contents names, flattened
+as BonBon does (each outline with a url except includes, in document
+order, a page before the outlines under it), includes read in place.
+Returns a <code>Listing</code> of <code>Page</code>s (address, title,
+the outline it came from, include depth, <code>Group</code>, and
+<code>Path</code> for a local site) with what was <code>Skipped</code>
+and whether the list is <code>Complete</code>. <code>Limits</code>:
+include depth (default 1), pages (10,000), files (50), bytes (32 MiB),
+and named extra hosts; never any host. Loops are skipped and reported, a
+diamond is read once, a page is listed once whatever form its address
+takes.</li>
+<li><code>toc.Doc.AllPages</code> and <code>Entry.Group</code>: the same
+flatten at the document level. <code>Entries</code> is unchanged.</li>
+<li><code>toc.NewFinderWith(*fetch.Fetcher)</code>. The Finder no longer
+has its own <code>http.Client</code>: every outline and
+<code>bonbon.json</code> read goes through <code>fetch.Fetcher</code>,
+<code>page.Fetcher()</code> by default (read at each request, so a
+program may install its fetcher after making a Finder).
+<code>Lookup</code> therefore sends the program’s User-Agent, pauses per
+host when asked to, and finds no outline where robots.txt forbids it, if
+the program turned robots on. With the default fetcher nothing else
+changes.</li>
+<li><code>toc.ErrNoOutline</code>, and the <code>Skip*</code>
+reasons.</li>
+<li><strong>Behaviour change (markdownweb DR-0004):
+<code>Neighbours</code> and <code>NeighboursByPath</code> follow
+BonBon’s rule.</strong> The outline is one flat list
+(<code>AllPages</code>): previous is the line above, next the line
+below, the ends wrap, groups do not stop the arrows, nothing is
+reordered whatever the calendar outlines say, a page with outlines under
+it is a stop. A page listed more than once has the nearest different
+page on each side. A page under the folder of a top-level include (its
+url up to <code>/.well-known/</code>) is read in that site’s list alone
+and wraps inside it, as BonBon’s <code>getSiteToc</code> does. Checked
+against BonBon 0.6.57’s own function on <code>rsdoiel.github.io</code>:
+220 of 220 pages agree. The leaves-only rule with calendar reversal is
+gone; <code>Entries</code> keeps its leaves-only list.</li>
+<li>New: <code>Doc.Stops</code>, <code>StopsOf</code>,
+<code>StopsByPath</code> (the candidates for each neighbour, nearest
+first, wrapping, for a caller that checks that one answers),
+<code>Doc.NeighboursOf</code> (a page known by more than one address),
+<code>Result.Before</code> and <code>Result.After</code>.</li>
+<li><code>LookupLocal</code> passes over a neighbour that has no file
+for the next one, where it used to drop it.</li>
+</ul>
+<h2 id="v0.0.3-2026-11-26">v0.0.3, 2026-11-26</h2>
+<ul>
+<li>New package <code>fetch</code> (markdownweb DR-0002): a polite HTTP
+client with a pause per host, a named User-Agent, bounded redirects,
+body size and waits, <code>Retry-After</code>, and opt-in
+<code>robots.txt</code> (<code>github.com/temoto/robotstxt</code>) with
+<code>Crawl-delay</code>. <code>Get</code> reads the body;
+<code>Open</code> returns the response for a caller that reads part of
+it.</li>
+<li><code>page.Fetch</code>, <code>page.FetchOther</code> and
+<code>page.FetchReader</code> now go through a shared fetcher:
+<code>page.Fetcher</code> and <code>page.SetFetcher</code>. The default
+sends <code>User-Agent: markdownweb/VERSION</code> (it was Go’s
+default), keeps the 30 s timeout and ten redirects, and does not pause
+or read <code>robots.txt</code>.</li>
+<li><code>page.ErrData</code> and <code>page.ErrUnavailable</code> are
+the same values as <code>fetch.ErrData</code> and
+<code>fetch.ErrUnavailable</code>; new
+<code>page.ErrForbidden</code>.</li>
+<li>antennaApp harvests through <code>fetch</code> (antennaApp’s harvest
+keeps its own pause, User-Agent and exit classes).</li>
+</ul>
+<h2 id="v0.0.2-2026-11-26">v0.0.2, 2026-11-26</h2>
+<ul>
+<li><code>page.PrefersMarkdown</code>: whether an Accept header asks for
+Markdown in preference to HTML (moved from antennaApp’s preview
+server).</li>
+<li><code>page.MarkdownPath</code>: the Markdown path for a file path,
+<code>x.html</code> and <code>x.htm</code> to <code>x.md</code> (moved
+from antennaApp’s <code>markdownPathFor</code>).</li>
+<li><code>page.DeclaredAlternate</code> is exported (it was
+<code>declaredAlternate</code>).</li>
+<li><code>toc.FileName</code>: the <code>.well-known/toc.opml</code>
+path, used by the local and remote finders.</li>
+<li>Fixed: a declared alternate whose <code>href</code> was blank
+resolved to the page itself and was returned as its own alternate; it is
+now ignored.</li>
+<li>antennaApp’s reading of the declared alternate now follows the
+shared rule: an alternate on another host is skipped and the next one is
+tried, where antennaApp gave up at the first.</li>
+</ul>
+<h2 id="v0.0.1-2026-11-26">v0.0.1, 2026-11-26</h2>
+<ul>
+<li>Extracted <code>page</code>, <code>toc</code>, <code>local</code>,
+<code>reader</code> and <code>debuglog</code> from cmarkbrowser’s
+<code>internal/</code>, with their tests. No change of behaviour.</li>
+<li><code>toc</code> reads OPML through <code>rsdoiel/opml</code> (its
+character-set handling replaces the copy in <code>toc</code>).</li>
+<li>Every exported symbol has a <code>/** */</code> block with an
+example.</li>
+</ul>
+</section>
+<footer>
+<p>markdownweb. This page is also published as <a href="CHANGES.md">Markdown</a>.</p>
+</footer>
+</body>
+</html>
