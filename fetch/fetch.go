@@ -190,6 +190,18 @@ func New(o Options) *Fetcher {
 	return f
 }
 
+/** SameOrigin reports whether the Fetcher refuses a redirect to another origin
+ * (Options.SameOrigin), so a caller that must never reach a second origin can
+ * check the fetcher it was given.
+ *
+ * Returns:
+ *   bool — true when redirects off the origin are refused
+ *
+ * Example:
+ *   if !f.SameOrigin() { return errors.New("need a same-origin fetcher") }
+ */
+func (f *Fetcher) SameOrigin() bool { return f.o.SameOrigin }
+
 // sameOrigin reports whether a and b have the same scheme, host and port, the
 // scheme and host compared without case and a default port counted as given.
 func sameOrigin(a, b *url.URL) bool {

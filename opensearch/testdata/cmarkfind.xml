@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<OpenSearchDescription xmlns="http://a9.com/-/spec/opensearch/1.1/">
+  <ShortName>cmarkfind</ShortName>
+  <Description>Search the Markdown pages in this cmarkfind corpus</Description>
+  <InputEncoding>UTF-8</InputEncoding>
+  <OutputEncoding>UTF-8</OutputEncoding>
+  <Url type="text/markdown" template="http://127.0.0.1:8911/search?q={searchTerms}&amp;count={count?}&amp;startIndex={startIndex?}"></Url>
+  <Url type="text/html" template="http://127.0.0.1:8911/search.html?q={searchTerms}&amp;count={count?}&amp;startIndex={startIndex?}"></Url>
+  <Url type="application/json" template="http://127.0.0.1:8911/search.json?q={searchTerms}&amp;count={count?}&amp;startIndex={startIndex?}"></Url>
+  <Url type="application/opensearchdescription+xml" template="http://127.0.0.1:8911/opensearch.xml" rel="self"></Url>
+</OpenSearchDescription>
