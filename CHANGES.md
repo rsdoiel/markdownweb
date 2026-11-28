@@ -1,6 +1,10 @@
 
 # Change log
 
+## Unreleased
+
+- `fetch.Options.SameOrigin`: a redirect to another origin (scheme, host or port) is refused before it is followed, with `fetch.ErrCrossOrigin` (also an `ErrData`), for a caller that reads files named by a published manifest (cmarkfind's remote index). Off by default; the redirect limit still applies.
+
 ## v0.0.6, 2026-11-27
 
 - New package `slug`: `slug.Of` (the fragment identifier of one heading, GitHub's rule) and `slug.Slugger` (`New`, `Next`, `Reset`) for a whole page, where a repeated heading gets `-1`, `-2`, skipping any suffix already taken. For cmarkfind, cmarkbrowser's `#fragment` links and antennaApp's heading links.
