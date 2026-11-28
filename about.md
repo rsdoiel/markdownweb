@@ -14,7 +14,7 @@ maintainer:
     id: https://orcid.org/0000-0003-0900-6903
 
 repository_code: https://github.com/rsdoiel/markdownweb
-version: 0.0.5
+version: 0.0.6
 license_url: https://www.gnu.org/licenses/agpl-3.0.txt
 
 programming_language:
@@ -30,15 +30,15 @@ keywords:
   - robots.txt
   - fetcher
 
-date_released: 2026-11-26
+date_released: 2026-11-27
 ---
 
 About this software
 ===================
 
-## markdownweb 0.0.5
+## markdownweb 0.0.6
 
-- fetch: new Fetcher.GetIf and Validators, a conditional request (If-None-Match, If-Modified-Since) with the same pause, retry and robots rules as Get. Result gains ETag, LastModified and NotModified (true on a 304); Get fills the first two. Asked for by cmarkfind's remote fill (cmarkfind DR-0001)
+- New package slug: slug.Of (the fragment identifier of one heading, GitHub's rule) and slug.Slugger (New, Next, Reset) for a whole page, where a repeated heading gets -1, -2, skipping any suffix already taken. For cmarkfind, cmarkbrowser's #fragment links and antennaApp's heading links.
 - no other behaviour change
 
 ## Authors

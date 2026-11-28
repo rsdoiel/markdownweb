@@ -1,7 +1,7 @@
 
 # Change log
 
-## Unreleased
+## v0.0.6, 2026-11-27
 
 - New package `slug`: `slug.Of` (the fragment identifier of one heading, GitHub's rule) and `slug.Slugger` (`New`, `Next`, `Reset`) for a whole page, where a repeated heading gets `-1`, `-2`, skipping any suffix already taken. For cmarkfind, cmarkbrowser's `#fragment` links and antennaApp's heading links.
 

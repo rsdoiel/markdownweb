@@ -12,6 +12,10 @@ func TestOf(t *testing.T) {
 		{"Ünïcode Ünder", "ünïcode-ünder"},
 		{"Section 2.1", "section-21"},
 		{"snake_case name", "snake_case-name"},
+		{"Chapter ½", "chapter-½"}, // a number that is not a digit is kept
+		{"Chapter Ⅷ", "chapter-ⅷ"}, // Unicode number, lower-cased
+		{"🌱", ""},                  // an emoji-only heading has no slug
+		{"🌱 Seeds", "-seeds"},      // the emoji goes, its space stays
 		{"!!!", ""},
 		{"", ""},
 	} {

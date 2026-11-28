@@ -6,11 +6,11 @@
   "codeRepository": "https://github.com/rsdoiel/markdownweb",
   "issueTracker": "https://github.com/rsdoiel/markdownweb/issues",
   "license": "https://www.gnu.org/licenses/agpl-3.0.txt",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "developmentStatus": "wip",
-  "releaseNotes": "- fetch: new Fetcher.GetIf and Validators, a conditional request (If-None-Match, If-Modified-Since) with the same pause, retry and robots rules as Get. Result gains ETag, LastModified and NotModified (true on a 304); Get fills the first two. Asked for by cmarkfind's remote fill (cmarkfind DR-0001)\n- no other behaviour change",
+  "releaseNotes": "- New package slug: slug.Of (the fragment identifier of one heading, GitHub's rule) and slug.Slugger (New, Next, Reset) for a whole page, where a repeated heading gets -1, -2, skipping any suffix already taken. For cmarkfind, cmarkbrowser's #fragment links and antennaApp's heading links.\n- no other behaviour change",
   "dateCreated": "2026-11-26",
-  "dateModified": "2026-11-26",
+  "dateModified": "2026-11-27",
   "copyrightYear": 2026,
   "copyrightHolder": "R. S. Doiel",
   "programmingLanguage": [
@@ -55,5 +55,5 @@
       "email": "rsdoiel@gmail.com"
     }
   ],
-  "datePublished": "2026-11-26"
+  "datePublished": "2026-11-27"
 }

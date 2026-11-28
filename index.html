@@ -57,6 +57,12 @@ includes followed, with limits; <code>Pages</code> lists every page),
 <code>LookupLocal</code>, <code>Mirror</code></td>
 </tr>
 <tr>
+<td><code>slug</code></td>
+<td>a Markdown heading’s fragment identifier (GitHub’s rule), one
+heading at a time or a whole page with <code>-1</code>, <code>-2</code>
+for repeats</td>
+</tr>
+<tr>
 <td><code>local</code></td>
 <td>a site on disk; links confined to the root</td>
 </tr>
@@ -77,8 +83,9 @@ includes followed, with limits; <code>Pages</code> lists every page),
 <code>github.com/temoto/robotstxt</code> and
 <code>golang.org/x/net</code>. No Charm, no SQLite, no cgo.</p>
 <p>The packages keep the behaviour they had in cmarkbrowser, except
-<code>toc.Neighbours</code>, which since v0.0.4 follows BonBon’s rule
-(see <code>CHANGES.md</code>).</p>
+<code>toc.Neighbours</code>, which since v0.0.4 follows BonBon’s rule,
+and <code>slug</code>, which is new in v0.0.6 (see
+<code>CHANGES.md</code>).</p>
 </section>
 <footer>
 <p>markdownweb. This page is also published as <a href="index.md">Markdown</a>.</p>

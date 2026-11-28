@@ -19,13 +19,13 @@
 </nav>
 <section id="main-content">
 <h1 id="about-this-software">About this software</h1>
-<h2 id="markdownweb-0.0.5">markdownweb 0.0.5</h2>
+<h2 id="markdownweb-0.0.6">markdownweb 0.0.6</h2>
 <ul>
-<li>fetch: new Fetcher.GetIf and Validators, a conditional request
-(If-None-Match, If-Modified-Since) with the same pause, retry and robots
-rules as Get. Result gains ETag, LastModified and NotModified (true on a
-304); Get fills the first two. Asked for by cmarkfind’s remote fill
-(cmarkfind DR-0001)</li>
+<li>New package slug: slug.Of (the fragment identifier of one heading,
+GitHub’s rule) and slug.Slugger (New, Next, Reset) for a whole page,
+where a repeated heading gets -1, -2, skipping any suffix already taken.
+For cmarkfind, cmarkbrowser’s #fragment links and antennaApp’s heading
+links.</li>
 <li>no other behaviour change</li>
 </ul>
 <h2 id="authors">Authors</h2>
