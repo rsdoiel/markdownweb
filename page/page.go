@@ -137,6 +137,9 @@ type Page struct {
 	Kind   Kind
 	Notice string
 	Reader bool // the Body is a reader view of an HTML page, not the page's own Markdown
+	// Links are the Link headers of the response that served the page, resolved
+	// against its address (fetch.ParseLinks); nil for a file or a response with none.
+	Links []fetch.Link
 }
 
 // str returns the front matter value for key as a string, or "".
@@ -412,6 +415,7 @@ func fetchAttempt(ctx context.Context, rawurl string, a *attempt) (*Page, error)
 	if err != nil {
 		return nil, err
 	}
+	p.Links = fetch.ParseLinks(resp.Header.Values("Link"), resp.Request.URL)
 	p.URL = resp.Request.URL.String()
 	if loc := contentLocation(resp); loc != "" {
 		p.URL = loc
@@ -639,7 +643,8 @@ func FetchReader(ctx context.Context, rawurl string) (*Page, error) {
 	if res.Title != "" {
 		meta["title"] = res.Title
 	}
-	return &Page{URL: resp.Request.URL.String(), Meta: meta, Body: res.Markdown, Reader: true}, nil
+	return &Page{URL: resp.Request.URL.String(), Meta: meta, Body: res.Markdown, Reader: true,
+		Links: fetch.ParseLinks(resp.Header.Values("Link"), resp.Request.URL)}, nil
 }
 
 /** ReadFile reads a local Markdown file as a page. It is only for a file the

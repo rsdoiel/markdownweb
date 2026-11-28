@@ -78,6 +78,7 @@ type Options struct {
  *   ETag (string) — the ETag header, "" when there is none
  *   LastModified (string) — the Last-Modified header, "" when there is none
  *   NotModified (bool) — the answer was 304 to a conditional request (GetIf)
+ *   Links ([]Link) — the response's Link headers, resolved against FinalURL and bounded (ParseLinks); nil when there are none
  */
 type Result struct {
 	Status       int
@@ -87,6 +88,8 @@ type Result struct {
 	ETag         string
 	LastModified string
 	NotModified  bool
+	// Links are the response's Link headers (see ParseLinks), resolved against FinalURL; nil when it has none.
+	Links []Link
 }
 
 /** Validators are what an earlier read of a page returned, sent back so the
@@ -415,6 +418,7 @@ func (f *Fetcher) GetIf(ctx context.Context, href, accept string, v Validators) 
 		ETag:         resp.Header.Get("ETag"),
 		LastModified: resp.Header.Get("Last-Modified"),
 		NotModified:  resp.StatusCode == http.StatusNotModified,
+		Links:        ParseLinks(resp.Header.Values("Link"), resp.Request.URL),
 	}, nil
 }
 

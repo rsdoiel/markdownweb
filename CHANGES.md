@@ -3,6 +3,7 @@
 
 ## Unreleased
 
+- `fetch.Link` and `fetch.ParseLinks`: the response's `Link` headers (RFC 8288, the subset needed: target, `rel`, `type`, `title`), resolved against the final address, at most 16 kept, a value over 2 KiB skipped, a title cut at 128 bytes and stripped of control characters, a target that is not http or https dropped. `fetch.Result.Links` and `page.Page.Links` carry them for `Get`, `GetIf`, `page.Fetch` and `page.FetchReader`; nil when there is no header. For a client that finds a search service from the header.
 - `fetch.Options.SameOrigin`: a redirect to another origin (scheme, host or port) is refused before it is followed, with `fetch.ErrCrossOrigin` (also an `ErrData`), for a caller that reads files named by a published manifest (cmarkfind's remote index). Off by default; the redirect limit still applies.
 
 ## v0.0.6, 2026-11-27
