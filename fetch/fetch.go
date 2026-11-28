@@ -30,6 +30,9 @@ var (
 	ErrForbidden = errors.New("forbidden by robots.txt")
 	// ErrTooLarge marks a body over the cap. It is also an ErrData.
 	ErrTooLarge = fmt.Errorf("%w: body too large", ErrData)
+	// ErrCrossOrigin marks a redirect to another origin that SameOrigin
+	// refused. It is also an ErrData.
+	ErrCrossOrigin = fmt.Errorf("%w: redirect to another origin", ErrData)
 )
 
 /** Options configures a Fetcher. A zero value is usable.
@@ -40,6 +43,8 @@ var (
  *   Timeout       (time.Duration) — per request; 0 means 60 s
  *   MaxBody       (int64)         — bytes read from a body; 0 means 8 MiB
  *   MaxRedirects  (int)           — redirects followed; 0 means 5
+ *   SameOrigin    (bool)          — refuse a redirect to another origin (scheme, host or port) before it is
+ *                                   followed, with ErrCrossOrigin; off by default, as the web redirects across origins
  *   MaxRetryAfter (time.Duration) — longest Retry-After waited out; 0 means 2 min
  *   Robots        (bool)          — read and obey robots.txt; off by default
  *   MaxCrawlDelay (time.Duration) — a longer Crawl-delay makes the host forbidden; 0 means 30 s
@@ -55,6 +60,7 @@ type Options struct {
 	Timeout       time.Duration
 	MaxBody       int64
 	MaxRedirects  int
+	SameOrigin    bool
 	MaxRetryAfter time.Duration
 	Robots        bool
 	MaxCrawlDelay time.Duration
@@ -165,6 +171,9 @@ func New(o Options) *Fetcher {
 	f.client = &http.Client{
 		Timeout: o.Timeout,
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			if o.SameOrigin && len(via) > 0 && !sameOrigin(via[0].URL, req.URL) {
+				return fmt.Errorf("%w: %s redirects to %s", ErrCrossOrigin, via[0].URL, req.URL)
+			}
 			if err := limit(req, via); err != nil {
 				return err
 			}
@@ -176,6 +185,21 @@ func New(o Options) *Fetcher {
 		},
 	}
 	return f
+}
+
+// sameOrigin reports whether a and b have the same scheme, host and port, the
+// scheme and host compared without case and a default port counted as given.
+func sameOrigin(a, b *url.URL) bool {
+	port := func(u *url.URL) string {
+		if p := u.Port(); p != "" {
+			return p
+		}
+		if strings.EqualFold(u.Scheme, "https") {
+			return "443"
+		}
+		return "80"
+	}
+	return strings.EqualFold(a.Scheme, b.Scheme) && strings.EqualFold(a.Hostname(), b.Hostname()) && port(a) == port(b)
 }
 
 // wait sleeps until the pause (or the host's Crawl-delay, if longer) has

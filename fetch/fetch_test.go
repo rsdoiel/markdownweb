@@ -535,3 +535,116 @@ func TestGetIfIsPoliteLikeGet(t *testing.T) {
 		t.Errorf("err = %v, want ErrForbidden", err)
 	}
 }
+
+// ---- SameOrigin (asked for by cmarkfind's remote index, Phase 7) ----
+
+// counting serves body and counts the requests it gets.
+func counting(body string) (*httptest.Server, *int) {
+	n := new(int)
+	var mu sync.Mutex
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		*n++
+		mu.Unlock()
+		w.Write([]byte(body))
+	})), n
+}
+
+func redirectTo(target func() string) *httptest.Server {
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, target(), 302)
+	}))
+}
+
+func TestSameOriginRefusesARedirectToAnotherOriginAndNeverAsksIt(t *testing.T) {
+	other, asked := counting("elsewhere")
+	defer other.Close()
+	first := redirectTo(func() string { return other.URL + "/x" }) // another port: another origin
+	defer first.Close()
+	f, _ := newTest(Options{SameOrigin: true})
+	_, err := f.Get(context.Background(), first.URL+"/a", "")
+	if !errors.Is(err, ErrCrossOrigin) || !errors.Is(err, ErrData) {
+		t.Fatalf("err %v, want ErrCrossOrigin (an ErrData)", err)
+	}
+	if *asked != 0 {
+		t.Errorf("the other origin was asked %d times", *asked)
+	}
+}
+
+func TestSameOriginRefusesAnotherHostNameAndAnotherScheme(t *testing.T) {
+	var srv *httptest.Server
+	to := ""
+	srv = redirectTo(func() string { return to })
+	defer srv.Close()
+	_, port, _ := strings.Cut(strings.TrimPrefix(srv.URL, "http://"), ":")
+	f, _ := newTest(Options{SameOrigin: true})
+	for name, target := range map[string]string{
+		"another host name": "http://localhost:" + port + "/x",
+		"another scheme":    "https://127.0.0.1:" + port + "/x",
+		"a bare path host":  "//evil.example/x",
+	} {
+		to = target
+		if _, err := f.Get(context.Background(), srv.URL+"/a", ""); !errors.Is(err, ErrCrossOrigin) {
+			t.Errorf("%s: err %v, want ErrCrossOrigin", name, err)
+		}
+	}
+}
+
+func TestSameOriginFollowsARedirectWithinTheOrigin(t *testing.T) {
+	var srv *httptest.Server
+	srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/old" {
+			http.Redirect(w, r, srv.URL+"/new", 301)
+			return
+		}
+		w.Write([]byte("here"))
+	}))
+	defer srv.Close()
+	f, _ := newTest(Options{SameOrigin: true})
+	res, err := f.Get(context.Background(), srv.URL+"/old", "")
+	if err != nil || res.FinalURL != srv.URL+"/new" || string(res.Body) != "here" {
+		t.Fatalf("res %+v err %v", res, err)
+	}
+}
+
+func TestSameOriginAlsoGuardsOpen(t *testing.T) {
+	other, asked := counting("elsewhere")
+	defer other.Close()
+	first := redirectTo(func() string { return other.URL })
+	defer first.Close()
+	f, _ := newTest(Options{SameOrigin: true})
+	if resp, err := f.Open(context.Background(), first.URL, ""); !errors.Is(err, ErrCrossOrigin) {
+		if resp != nil {
+			resp.Body.Close()
+		}
+		t.Fatalf("err %v, want ErrCrossOrigin", err)
+	}
+	if *asked != 0 {
+		t.Errorf("the other origin was asked %d times", *asked)
+	}
+}
+
+// Off by default: a page's links and the web in general do redirect across
+// origins, and the fill of pages relies on it.
+func TestRedirectsAcrossOriginsAreFollowedWhenSameOriginIsOff(t *testing.T) {
+	other, asked := counting("elsewhere")
+	defer other.Close()
+	first := redirectTo(func() string { return other.URL })
+	defer first.Close()
+	f, _ := newTest(Options{})
+	res, err := f.Get(context.Background(), first.URL, "")
+	if err != nil || string(res.Body) != "elsewhere" || *asked != 1 {
+		t.Fatalf("res %+v err %v asked %d", res, err, *asked)
+	}
+}
+
+// The redirect limit still holds under SameOrigin.
+func TestSameOriginKeepsTheRedirectLimit(t *testing.T) {
+	var srv *httptest.Server
+	srv = redirectTo(func() string { return srv.URL + "/again" })
+	defer srv.Close()
+	f, _ := newTest(Options{SameOrigin: true, MaxRedirects: 3})
+	if _, err := f.Get(context.Background(), srv.URL, ""); !errors.Is(err, ErrUnavailable) {
+		t.Fatalf("err %v", err)
+	}
+}
